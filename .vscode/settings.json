@@ -1,0 +1,6 @@
+{
+    // override check-on-save to allow seamless work with `trunk serve`
+    "rust-analyzer.check.extraArgs": [
+        "--target=wasm32-unknown-unknown",
+    ]
+}

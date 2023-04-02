@@ -1,0 +1,29 @@
+$gradient-start-color: #FFC300; // warm yellow color
+$gradient-end-color: #FF5733; // warm orange color
+
+// Define the gradient background for the body
+body {
+  background: linear-gradient(to bottom right, $gradient-start-color, $gradient-end-color);
+}
+
+// Center the wasm game window
+.game-window {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 800px;
+  height: 600px;
+  
+  // Add a border to the game window
+  border: 1px solid #fff;
+  
+  // Add a box shadow effect to the game window
+  box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.5);
+  
+  // Add a background color to the game window
+  background-color: #fff;
+  
+  // Adjust the z-index to ensure that the game window is on top of the background
+  z-index: 1;
+}
