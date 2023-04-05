@@ -13,6 +13,7 @@ A game about platforming your way to the other side of the screen, in a given am
 ## Design
 
 Timer - starts at a certain amount and increases by a fixed amount everytime a wall is reached
+
 Platforming - The platform are spawned off screen and despawn when they leave the screen, they move from the destination side to the opposite side.
 
 The floor is Lava - you touch you die.
