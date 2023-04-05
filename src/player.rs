@@ -1,6 +1,9 @@
 use bevy::{prelude::*, utils::HashMap, window::PrimaryWindow};
 
-use crate::animation::{Animation, AnimationTimer, Animations};
+use crate::{
+    animation::{Animation, AnimationTimer, Animations},
+    AppState,
+};
 
 const PLAYER_SPEED: f32 = 500.;
 const PLAYER_ACCELERATION: f32 = PLAYER_SPEED / 2.;
@@ -30,13 +33,18 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(spawn_player)
-            .add_system(player_input)
-            .add_system(gravity)
-            .add_system(land_on_ground)
-            .add_system(change_player_animation)
-            .add_system(move_player)
-            .add_system(confine_player_in_screen);
+        app.add_system(spawn_player.in_schedule(OnEnter(AppState::InGame)))
+            .add_systems(
+                (
+                    player_input,
+                    gravity,
+                    land_on_ground,
+                    change_player_animation,
+                    move_player,
+                    confine_player_in_screen,
+                )
+                    .in_set(OnUpdate(AppState::InGame)),
+            );
     }
 }
 

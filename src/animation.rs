@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy::utils::HashMap;
 
 use crate::player::Facing;
+use crate::AppState;
 
 #[derive(Component, Clone)]
 pub struct Animation {
@@ -21,7 +22,7 @@ pub struct AnimatorPlugin;
 
 impl Plugin for AnimatorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(animate_sprites);
+        app.add_system(animate_sprites.in_set(OnUpdate(AppState::InGame)));
     }
 }
 
