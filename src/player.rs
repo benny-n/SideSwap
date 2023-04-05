@@ -1,10 +1,10 @@
 use bevy::{prelude::*, utils::HashMap, window::PrimaryWindow};
 
-use crate::animation::{animate_sprites, Animation, AnimationTimer, Animations};
+use crate::animation::{Animation, AnimationTimer, Animations};
 
 const PLAYER_SPEED: f32 = 500.;
 const PLAYER_ACCELERATION: f32 = PLAYER_SPEED / 2.;
-const JUMP_VELOCITY: f32 = 1500.;
+const JUMP_VELOCITY: f32 = 1750.;
 const PLAYER_SIZE: f32 = 150.;
 const HALF_PLAYER_SIZE: f32 = PLAYER_SIZE / 2.;
 const FRICTION: f32 = PLAYER_ACCELERATION * 2.;
@@ -32,11 +32,11 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(spawn_player)
             .add_system(player_input)
-            .add_system(gravity.after(player_input))
-            .add_system(land_on_ground.after(player_input))
-            .add_system(change_player_animation.before(animate_sprites))
-            .add_system(move_player.after(gravity).after(land_on_ground))
-            .add_system(confine_player_in_screen.after(move_player));
+            .add_system(gravity)
+            .add_system(land_on_ground)
+            .add_system(change_player_animation)
+            .add_system(move_player)
+            .add_system(confine_player_in_screen);
     }
 }
 

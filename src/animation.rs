@@ -28,7 +28,7 @@ impl Plugin for AnimatorPlugin {
 #[derive(Component, Deref, DerefMut)]
 pub struct AnimationTimer(pub Timer);
 
-pub fn animate_sprites(
+fn animate_sprites(
     time: Res<Time>,
     animations: Res<Animations>,
     mut query: Query<(&mut AnimationTimer, &mut TextureAtlasSprite, &Facing)>,
