@@ -1,4 +1,5 @@
 use bevy::{prelude::*, utils::HashMap, window::PrimaryWindow};
+use bevy_rapier2d::prelude::*;
 
 use crate::{
     animation::{Animation, AnimationTimer, Animations},
@@ -42,12 +43,25 @@ impl Plugin for PlayerPlugin {
                     land_on_ground,
                     change_player_animation,
                     move_player,
-                    confine_player_in_screen,
-                    send_wall_reached_event,
+                    read_result_system,
+                    modify_character_controller_slopes, // confine_player_in_screen,
+                                                        // send_wall_reached_event,
                 )
                     .in_set(OnUpdate(AppState::InGame)),
             )
             .add_system(despawn_player.in_schedule(OnExit(AppState::InGame)));
+    }
+}
+
+/* Read the character controller collisions stored in the character controller’s output. */
+fn modify_character_controller_slopes(
+    mut character_controller_outputs: Query<&mut KinematicCharacterControllerOutput>,
+) {
+    for mut output in character_controller_outputs.iter_mut() {
+        for collision in &output.collisions {
+            // Do something with that collision information.
+            info!("Collision: {:?}", collision);
+        }
     }
 }
 
@@ -119,6 +133,12 @@ fn spawn_player(
             transform: Transform::from_xyz(HALF_PLAYER_SIZE, HALF_PLAYER_SIZE, 0.0),
             ..default()
         })
+        .insert(RigidBody::KinematicPositionBased)
+        .insert(Collider::capsule_y(
+            HALF_PLAYER_SIZE / 2.,
+            HALF_PLAYER_SIZE / 2.,
+        ))
+        .insert(KinematicCharacterController::default())
         .insert(AnimationTimer(Timer::from_seconds(
             1. / idle.fps as f32,
             TimerMode::Repeating,
@@ -129,14 +149,38 @@ fn spawn_player(
     });
 }
 
-fn move_player(time: Res<Time>, mut query: Query<(&mut Velocity, &mut Transform), With<Player>>) {
-    for (mut velocity, mut transform) in query.iter_mut() {
+fn move_player(
+    time: Res<Time>,
+    mut query: Query<
+        (
+            &mut Velocity,
+            &mut Transform,
+            &mut KinematicCharacterController,
+        ),
+        With<Player>,
+    >,
+) {
+    for (mut velocity, mut transform, mut controller) in query.iter_mut() {
         velocity.x = velocity.x.clamp(-PLAYER_SPEED, PLAYER_SPEED);
-        transform.translation += Vec3::new(
+        let translation = Vec3::new(
             velocity.x * time.delta_seconds(),
             velocity.y * time.delta_seconds(),
             0.,
         );
+        transform.translation += translation;
+        controller.translation = Some(Vec2::new(
+            controller.translation.unwrap_or_default().x + translation.x,
+            controller.translation.unwrap_or_default().y + translation.y,
+        ));
+    }
+}
+
+fn read_result_system(controllers: Query<(Entity, &KinematicCharacterControllerOutput)>) {
+    for (entity, output) in controllers.iter() {
+        // info!(
+        //     "Entity {:?} moved by {:?} and touches the ground: {:?}",
+        //     entity, output.effective_translation, output.grounded
+        // );
     }
 }
 
