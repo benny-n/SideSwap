@@ -2,19 +2,16 @@ use bevy::{prelude::*, utils::HashMap, window::PrimaryWindow};
 
 use crate::animation::{animate_sprites, Animation, AnimationTimer, Animations};
 
-const PLAYER_SPEED: f32 = 500.0;
-const PLAYER_SIZE: f32 = 150.0;
-const HALF_PLAYER_SIZE: f32 = PLAYER_SIZE / 2.0;
+const PLAYER_SPEED: f32 = 500.;
+const PLAYER_ACCELERATION: f32 = PLAYER_SPEED / 2.;
+const JUMP_VELOCITY: f32 = 1500.;
+const PLAYER_SIZE: f32 = 150.;
+const HALF_PLAYER_SIZE: f32 = PLAYER_SIZE / 2.;
+const FRICTION: f32 = PLAYER_ACCELERATION * 2.;
+const GRAVITY: f32 = 250.;
 
 #[derive(Component)]
 struct Player;
-#[derive(Component, Default, Debug, Clone, Copy)]
-enum PlayerState {
-    #[default]
-    Idle,
-    Running,
-    // Jumping,
-}
 
 #[derive(Component, Default, Debug, Clone, Copy)]
 pub enum Facing {
@@ -24,21 +21,22 @@ pub enum Facing {
 }
 
 #[derive(Component)]
-struct PlayerMovement {
-    x_velocity: f32,
-    y_velocity: f32,
-    direction: Vec2,
-}
+struct Midair;
+
+#[derive(Component, DerefMut, Deref)]
+struct Velocity(Vec2);
 
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(spawn_player)
-            .add_system(move_player)
-            .add_system(change_player_animation.before(animate_sprites))
             .add_system(player_input)
-            .add_system(confine_player_movement.after(move_player));
+            .add_system(gravity.after(player_input))
+            .add_system(land_on_ground.after(player_input))
+            .add_system(change_player_animation.before(animate_sprites))
+            .add_system(move_player.after(gravity).after(land_on_ground))
+            .add_system(confine_player_in_screen.after(move_player));
     }
 }
 
@@ -80,18 +78,29 @@ fn spawn_player(
                 fps: 24,
             },
         ),
+        (
+            "jump".to_owned(),
+            Animation {
+                handle: texture_atlases.add(TextureAtlas::from_grid(
+                    asset_server.load("sprites/jump.png"),
+                    Vec2::new(150.0, 150.0),
+                    1,
+                    1,
+                    None,
+                    None,
+                )),
+                last: 1,
+                curr: 0,
+                fps: 1,
+            },
+        ),
     ]);
 
     let idle = animations["idle"].clone();
 
     commands
         .spawn(Player)
-        .insert(PlayerState::default())
-        .insert(PlayerMovement {
-            x_velocity: PLAYER_SPEED,
-            y_velocity: 0.,
-            direction: Vec2::new(1., 0.),
-        })
+        .insert(Velocity(Vec2::new(0., 0.)))
         .insert(Facing::default())
         .insert(SpriteSheetBundle {
             texture_atlas: idle.handle.clone(),
@@ -109,11 +118,12 @@ fn spawn_player(
     });
 }
 
-fn move_player(time: Res<Time>, mut query: Query<(&PlayerMovement, &mut Transform), With<Player>>) {
-    for (movement, mut transform) in query.iter_mut() {
+fn move_player(time: Res<Time>, mut query: Query<(&mut Velocity, &mut Transform), With<Player>>) {
+    for (mut velocity, mut transform) in query.iter_mut() {
+        velocity.x = velocity.x.clamp(-PLAYER_SPEED, PLAYER_SPEED);
         transform.translation += Vec3::new(
-            movement.direction.x * movement.x_velocity * time.delta_seconds(),
-            movement.direction.y * movement.y_velocity * time.delta_seconds(),
+            velocity.x * time.delta_seconds(),
+            velocity.y * time.delta_seconds(),
             0.,
         );
     }
@@ -122,34 +132,27 @@ fn move_player(time: Res<Time>, mut query: Query<(&PlayerMovement, &mut Transfor
 fn player_input(
     mut commands: Commands,
     keyboard_input: Res<Input<KeyCode>>,
-    mut movement_query: Query<(Entity, &mut PlayerMovement, &PlayerState), With<Player>>,
-    mut facing_query: Query<&mut Facing, With<Player>>,
+    mut query: Query<(Entity, &mut Velocity, &mut Facing, Option<&Midair>), With<Player>>,
 ) {
-    let Ok(mut facing) = facing_query.get_single_mut() else {
-        return;
-    };
-    let mut player_movement = Vec2::new(0., 0.);
-    if keyboard_input.pressed(KeyCode::A) {
-        player_movement.x -= 1.;
-        *facing = Facing::Left;
-    }
-    if keyboard_input.pressed(KeyCode::D) {
-        player_movement.x += 1.;
-        *facing = Facing::Right;
-    }
-    for (player, mut movement, state) in movement_query.iter_mut() {
-        movement.direction = player_movement.normalize_or_zero();
-        if player_movement.x != 0. {
-            if !matches!(state, PlayerState::Running) {
-                commands.entity(player).insert(PlayerState::Running);
-            }
-        } else if !matches!(state, PlayerState::Idle) {
-            commands.entity(player).insert(PlayerState::Idle);
+    for (player, mut velocity, mut facing, optionally_midair) in query.iter_mut() {
+        if keyboard_input.pressed(KeyCode::A) {
+            velocity.x -= PLAYER_ACCELERATION;
+            *facing = Facing::Left;
+        } else if keyboard_input.pressed(KeyCode::D) {
+            velocity.x += PLAYER_ACCELERATION;
+            *facing = Facing::Right;
+        } else {
+            let delta = f32::min(velocity.x.abs(), FRICTION);
+            velocity.x -= velocity.x.signum() * delta;
+        }
+        if keyboard_input.pressed(KeyCode::Space) && optionally_midair.is_none() {
+            velocity.y += JUMP_VELOCITY;
+            commands.entity(player).insert(Midair);
         }
     }
 }
 
-fn confine_player_movement(
+fn confine_player_in_screen(
     mut player_query: Query<&mut Transform, With<Player>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
 ) {
@@ -159,6 +162,8 @@ fn confine_player_movement(
 
     let x_min = 0.0 + HALF_PLAYER_SIZE / 2.;
     let x_max = window.width() - HALF_PLAYER_SIZE / 2.;
+    let y_min = 0.0 + HALF_PLAYER_SIZE;
+    let y_max = window.height() - HALF_PLAYER_SIZE;
 
     let mut translation = player_transform.translation;
 
@@ -169,23 +174,34 @@ fn confine_player_movement(
         translation.x = x_max;
     }
 
+    // Bound the player y position
+    if translation.y < y_min {
+        translation.y = y_min;
+    } else if translation.y > y_max {
+        translation.y = y_max;
+    }
+
     player_transform.translation = translation;
 }
 
 fn change_player_animation(
     mut commands: Commands,
-    mut query: Query<(Entity, &PlayerState, Changed<PlayerState>), With<Player>>,
+    mut query: Query<(Entity, &Velocity, Option<&Midair>), With<Player>>,
     mut animations: ResMut<Animations>,
 ) {
-    for (player, state, changed) in query.iter_mut() {
-        if !changed {
-            continue;
-        }
-        animations.active = match state {
-            PlayerState::Idle => &animations.map["idle"],
-            PlayerState::Running => &animations.map["run"],
+    for (player, velocity, optionally_midair) in query.iter_mut() {
+        let old_animation_handle = animations.active.handle.clone();
+        animations.active = if optionally_midair.is_some() {
+            &animations.map["jump"]
+        } else if velocity.x == 0. {
+            &animations.map["idle"]
+        } else {
+            &animations.map["run"]
         }
         .clone();
+        if animations.active.handle == old_animation_handle {
+            return;
+        }
         commands.entity(player).insert((
             animations.active.handle.clone(),
             TextureAtlasSprite::new(animations.active.curr),
@@ -194,5 +210,23 @@ fn change_player_animation(
                 TimerMode::Repeating,
             )),
         ));
+    }
+}
+
+fn gravity(mut query: Query<&mut Velocity, With<Midair>>) {
+    for mut velocity in query.iter_mut() {
+        velocity.y -= GRAVITY;
+    }
+}
+
+fn land_on_ground(
+    mut commands: Commands,
+    mut query: Query<(Entity, &Transform, &mut Velocity), With<Midair>>,
+) {
+    for (player, transform, mut velocity) in query.iter_mut() {
+        if transform.translation.y - HALF_PLAYER_SIZE <= 0. {
+            velocity.y = 0.;
+            commands.entity(player).remove::<Midair>();
+        }
     }
 }
