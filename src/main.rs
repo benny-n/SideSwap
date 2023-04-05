@@ -22,6 +22,7 @@ fn main() {
         }))
         .add_startup_system(spawn_camera)
         .add_state::<AppState>()
+        .add_system(exit_game.in_set(OnUpdate(AppState::InGame)))
         .add_plugin(ui::UIPlugin)
         .add_plugin(AnimatorPlugin)
         .add_plugin(PlayerPlugin)
@@ -36,6 +37,12 @@ fn spawn_camera(mut commands: Commands, window_query: Query<&Window, With<Primar
         transform: Transform::from_xyz(window.width() / 2.0, window.height() / 2.0, 0.0),
         ..default()
     });
+}
+
+fn exit_game(keyboard_input: Res<Input<KeyCode>>, mut state: ResMut<NextState<AppState>>) {
+    if keyboard_input.just_pressed(KeyCode::Escape) {
+        state.set(AppState::MainMenu);
+    }
 }
 
 #[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default)]

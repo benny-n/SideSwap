@@ -44,7 +44,8 @@ impl Plugin for PlayerPlugin {
                     confine_player_in_screen,
                 )
                     .in_set(OnUpdate(AppState::InGame)),
-            );
+            )
+            .add_system(despawn_player.in_schedule(OnExit(AppState::InGame)));
     }
 }
 
@@ -236,5 +237,11 @@ fn land_on_ground(
             velocity.y = 0.;
             commands.entity(player).remove::<Midair>();
         }
+    }
+}
+
+fn despawn_player(mut commands: Commands, query: Query<Entity, With<Player>>) {
+    for entity in query.iter() {
+        commands.entity(entity).despawn_recursive();
     }
 }
