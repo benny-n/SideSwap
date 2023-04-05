@@ -1,8 +1,13 @@
-use bevy::prelude::*;
+use animation::AnimatorPlugin;
+use bevy::{prelude::*, window::PrimaryWindow};
+use player::PlayerPlugin;
+
+mod animation;
+mod player;
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(ClearColor(Color::WHITE))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Jam #3".into(),
@@ -12,22 +17,18 @@ fn main() {
             }),
             ..default()
         }))
-        .add_startup_system(setup_menu)
+        .add_startup_system(spawn_camera)
+        .add_plugin(AnimatorPlugin)
+        .add_plugin(PlayerPlugin)
         .run();
 }
 
-fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
-    commands.spawn(Text2dBundle {
-        text: Text::from_section(
-            "Hello, World",
-            TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 40.0,
-                color: Color::ORANGE_RED,
-            },
-        )
-        .with_alignment(TextAlignment::Center),
+fn spawn_camera(mut commands: Commands, window_query: Query<&Window, With<PrimaryWindow>>) {
+    let Ok(window) = window_query.get_single() else {
+        return;
+    };
+    commands.spawn(Camera2dBundle {
+        transform: Transform::from_xyz(window.width() / 2.0, window.height() / 2.0, 0.0),
         ..default()
     });
 }
