@@ -2,11 +2,19 @@
 
 use animation::AnimatorPlugin;
 use bevy::{prelude::*, window::PrimaryWindow};
+use events::WallReached;
 use player::PlayerPlugin;
 
 mod animation;
+mod events;
 mod player;
 mod ui;
+
+#[derive(Component, Clone, Copy, PartialEq)]
+pub enum Wall {
+    Left,
+    Right,
+}
 
 fn main() {
     App::new()
@@ -23,6 +31,7 @@ fn main() {
         .add_startup_system(spawn_camera)
         .add_state::<AppState>()
         .add_system(exit_game.in_set(OnUpdate(AppState::InGame)))
+        .add_event::<WallReached>()
         .add_plugin(ui::UIPlugin)
         .add_plugin(AnimatorPlugin)
         .add_plugin(PlayerPlugin)

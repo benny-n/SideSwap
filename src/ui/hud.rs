@@ -1,7 +1,9 @@
 use bevy::{prelude::*, utils::Instant};
 
-const TIME_SECTION: usize = 1;
+use crate::events::WallReached;
 
+const TIME_SECTION: usize = 1;
+const SCORE_SECTION: usize = 1;
 #[derive(Component)]
 pub struct Hud;
 
@@ -44,6 +46,19 @@ pub fn update_timer(timer: Res<Timer>, mut query: Query<&mut Text, With<TimerTex
 
 pub fn start_timer(mut commands: Commands) {
     commands.insert_resource(Timer(Instant::now()));
+}
+
+pub fn update_score(
+    mut wall_reached_events: EventReader<WallReached>,
+    mut query: Query<&mut Text, With<ScoreText>>,
+) {
+    let Ok(mut text) = query.get_single_mut() else {
+        return;
+    };
+    if wall_reached_events.iter().count() > 0 {
+        let score = text.sections[1].value.parse::<i32>().unwrap_or(0) + 1;
+        text.sections[SCORE_SECTION].value = score.to_string();
+    }
 }
 
 pub fn spawn_hud(mut commands: Commands, asset_server: Res<AssetServer>) {

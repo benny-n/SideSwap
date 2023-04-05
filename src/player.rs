@@ -2,7 +2,8 @@ use bevy::{prelude::*, utils::HashMap, window::PrimaryWindow};
 
 use crate::{
     animation::{Animation, AnimationTimer, Animations},
-    AppState,
+    events::WallReached,
+    AppState, Wall,
 };
 
 const PLAYER_SPEED: f32 = 500.;
@@ -42,6 +43,7 @@ impl Plugin for PlayerPlugin {
                     change_player_animation,
                     move_player,
                     confine_player_in_screen,
+                    send_wall_reached_event,
                 )
                     .in_set(OnUpdate(AppState::InGame)),
             )
@@ -162,10 +164,15 @@ fn player_input(
 }
 
 fn confine_player_in_screen(
-    mut player_query: Query<&mut Transform, With<Player>>,
+    mut commands: Commands,
+    mut player_query: Query<(Entity, &mut Transform, Option<&Wall>), With<Player>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
 ) {
-    let (Ok(mut player_transform), Ok(window)) = (player_query.get_single_mut(), window_query.get_single()) else {
+    let Ok(window) = window_query.get_single() else {
+        return;
+    };
+
+    let Ok((player, mut player_transform, wall)) = player_query.get_single_mut() else {
         return;
     };
 
@@ -176,21 +183,30 @@ fn confine_player_in_screen(
 
     let mut translation = player_transform.translation;
 
-    // Bound the player x position
-    if translation.x < x_min {
-        translation.x = x_min;
-    } else if translation.x > x_max {
-        translation.x = x_max;
-    }
-
-    // Bound the player y position
-    if translation.y < y_min {
-        translation.y = y_min;
-    } else if translation.y > y_max {
-        translation.y = y_max;
-    }
+    translation.x = translation.x.clamp(x_min, x_max);
+    translation.y = translation.y.clamp(y_min, y_max);
 
     player_transform.translation = translation;
+
+    // Insert a wall component if the player is at the edge of the screen
+    // This is used to send a WallReached event
+    if translation.x == x_min && wall != Some(&Wall::Left) {
+        commands.entity(player).insert(Wall::Left);
+    } else if translation.x == x_max && wall != Some(&Wall::Right) {
+        commands.entity(player).insert(Wall::Right);
+    }
+}
+
+fn send_wall_reached_event(
+    mut wall_reached_events: EventWriter<WallReached>,
+    mut query: Query<(&Wall, Changed<Wall>), With<Player>>,
+) {
+    // only send the event if the wall that was reached is new
+    if let Ok((wall, reached_new_wall)) = query.get_single_mut() {
+        if reached_new_wall {
+            wall_reached_events.send(WallReached(*wall));
+        }
+    };
 }
 
 fn change_player_animation(
