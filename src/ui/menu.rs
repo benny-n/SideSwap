@@ -2,6 +2,24 @@ use bevy::prelude::*;
 
 use crate::AppState;
 
+#[derive(Resource)]
+pub struct ButtonColors {
+    default: Color,
+    hovered: Color,
+}
+
+impl Default for ButtonColors {
+    fn default() -> Self {
+        ButtonColors {
+            default: Color::CRIMSON,
+            hovered: {
+                let [r, g, b, _] = Color::CRIMSON.as_rgba_f32();
+                Color::rgba(r, g, b, 0.5)
+            },
+        }
+    }
+}
+
 #[derive(Component)]
 pub struct MainMenu;
 
@@ -117,24 +135,6 @@ pub fn spawn_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                         });
                 });
         });
-}
-
-#[derive(Resource)]
-pub struct ButtonColors {
-    default: Color,
-    hovered: Color,
-}
-
-impl Default for ButtonColors {
-    fn default() -> Self {
-        ButtonColors {
-            default: Color::CRIMSON,
-            hovered: {
-                let [r, g, b, _] = Color::CRIMSON.as_rgba_f32();
-                Color::rgba(r, g, b, 0.5)
-            },
-        }
-    }
 }
 
 pub fn click_play_button(
