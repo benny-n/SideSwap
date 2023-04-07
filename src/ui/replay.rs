@@ -1,21 +1,27 @@
 use bevy::prelude::*;
 
-use crate::{HighScore, Score};
+use crate::{events::Reason, HighScore, Score};
 
 use super::ButtonColors;
 
 #[derive(Component)]
 pub struct ReplayScreen;
 
-const TITLE_TEXT: &str = "YOU DIED!";
+const YOU_DIED_TEXT: &str = "YOU DIED!";
+const OUT_OF_TIME_TEXT: &str = "OUT OF TIME!";
 
 pub fn spawn_replay_screen(
     mut commands: Commands,
     score: Res<Score>,
     highscore: Res<HighScore>,
     asset_server: Res<AssetServer>,
+    loss_reason: Res<Reason>,
 ) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let title = match *loss_reason {
+        Reason::OutOfTime => OUT_OF_TIME_TEXT,
+        Reason::Died => YOU_DIED_TEXT,
+    };
     commands
         .spawn((
             NodeBundle {
@@ -46,7 +52,7 @@ pub fn spawn_replay_screen(
                         },
                         text: Text {
                             sections: vec![TextSection::new(
-                                TITLE_TEXT,
+                                title,
                                 TextStyle {
                                     font: font.clone(),
                                     font_size: 140.,

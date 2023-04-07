@@ -1,6 +1,9 @@
-use bevy::{prelude::*, utils::Instant};
+use bevy::prelude::*;
 
-use crate::Score;
+use crate::{
+    events::{GameTimer, MAX_TIME_TO_REACH_WALL},
+    Score,
+};
 
 const TIME_SECTION: usize = 1;
 const SCORE_SECTION: usize = 1;
@@ -21,25 +24,25 @@ const fn hud_text_style(font: Handle<Font>) -> TextStyle {
 const GO_LEFT_TEXT: &str = "<<<";
 const GO_RIGHT_TEXT: &str = ">>>";
 
-#[derive(Resource, Deref, DerefMut)]
-pub struct Timer(pub Instant);
-
 #[derive(Component)]
 pub struct TimerText;
 
 #[derive(Component)]
 pub struct ScoreText;
 
-pub fn update_timer(timer: Res<Timer>, mut query: Query<&mut Text, With<TimerText>>) {
+pub fn update_timer(timer: Res<GameTimer>, mut query: Query<&mut Text, With<TimerText>>) {
     let Ok(mut text) = query.get_single_mut() else {
         return;
     };
     let elapsed = timer.0.elapsed().as_secs_f32();
-    text.sections[TIME_SECTION].value = format!("{:.2}", elapsed);
-}
-
-pub fn start_timer(mut commands: Commands) {
-    commands.insert_resource(Timer(Instant::now()));
+    let time_left_secs = MAX_TIME_TO_REACH_WALL - elapsed;
+    if time_left_secs < 6.0 {
+        text.sections[TIME_SECTION].style.font_size =
+            48.0 + f32::min(20., 24. - 4. * time_left_secs.floor());
+    } else {
+        text.sections[TIME_SECTION].style.font_size = 48.0;
+    }
+    text.sections[TIME_SECTION].value = format!("{:.2}", f32::max(0.0, time_left_secs));
 }
 
 pub fn update_score(score: Res<Score>, mut query: Query<&mut Text, With<ScoreText>>) {
@@ -85,12 +88,16 @@ pub fn spawn_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextBundle {
                     style: Style {
                         margin: UiRect::horizontal(Val::Px(16.)),
+                        // align_self: AlignSelf::Center,
                         ..default()
                     },
                     text: Text {
                         sections: vec![
-                            TextSection::new("Timer: ", hud_text_style(font.clone())),
-                            TextSection::new(format!("{:.2}", 0.0), hud_text_style(font.clone())),
+                            TextSection::new("Time: ", hud_text_style(font.clone())),
+                            TextSection::new(
+                                format!("{:.2}", MAX_TIME_TO_REACH_WALL),
+                                hud_text_style(font.clone()),
+                            ),
                         ],
                         ..default()
                     },

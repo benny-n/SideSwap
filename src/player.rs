@@ -3,7 +3,7 @@ use bevy_rapier2d::prelude::*;
 
 use crate::{
     animation::{Animation, AnimationTimer, Animations},
-    events::{Died, WallReached},
+    events::WallReached,
     physics::Platform,
     AppState, Wall,
 };
@@ -41,7 +41,6 @@ impl Plugin for PlayerPlugin {
                     change_player_animation,
                     send_wall_reached_event,
                     move_player,
-                    is_dead,
                 )
                     .in_set(OnUpdate(AppState::InGame)),
             )
@@ -282,14 +281,6 @@ fn change_player_animation(
                 TimerMode::Repeating,
             )),
         ));
-    }
-}
-
-fn is_dead(query: Query<&Transform, With<Player>>, mut event_writer: EventWriter<Died>) {
-    for transform in query.iter() {
-        if transform.translation.y < -100. {
-            event_writer.send(Died);
-        }
     }
 }
 
