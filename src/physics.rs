@@ -2,7 +2,7 @@ use bevy::{ecs::system::SystemParam, prelude::*, utils::Instant, window::Primary
 use bevy_rapier2d::{na::Vector, prelude::*, rapier::prelude::PhysicsHooks};
 use rand::random;
 
-use crate::{player::LastWall, AppState, Wall};
+use crate::{player::LastWall, AppState, Score, Wall};
 
 pub struct PhysicsPlugin;
 
@@ -35,7 +35,6 @@ impl Plugin for PhysicsPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(spawn_obstacles.in_schedule(OnEnter(AppState::InGame)))
             .add_plugin(RapierPhysicsPlugin::<CustomCollisionHook>::pixels_per_meter(100.0))
-            // .add_plugin(RapierDebugRenderPlugin::default()) // TODO: remove this
             .add_systems(
                 (emit_platforms, despawn_out_of_screen_platforms)
                     .in_set(OnUpdate(AppState::InGame)),
@@ -67,11 +66,8 @@ fn spawn_obstacles(
 
     // Ground
     commands
-        // .spawn(RigidBody::Fixed)
-        // .spawn(Collider::cuboid(ground_width / 2., ground_height / 2.))
         .spawn(SpriteBundle {
             sprite: Sprite {
-                // brownish
                 custom_size: Some(Vec2::new(ground_width, ground_height)),
                 ..default()
             },
@@ -106,12 +102,12 @@ fn spawn_obstacles(
     commands
         .spawn(RigidBody::KinematicVelocityBased)
         .insert(Collider::cuboid(
-            PLATFORM_MIN_WIDTH / 2.,
-            PLATFORM_MIN_HEIGHT / 2.,
+            PLATFORM_START_WIDTH / 2.,
+            PLATFORM_HEIGHT / 2.,
         ))
         .insert(SpriteBundle {
             sprite: Sprite {
-                custom_size: Some(Vec2::new(PLATFORM_MIN_WIDTH, PLATFORM_MIN_HEIGHT)),
+                custom_size: Some(Vec2::new(PLATFORM_START_WIDTH, PLATFORM_HEIGHT)),
                 ..default()
             },
             texture: asset_server.load("textures/brick.png"),
@@ -124,13 +120,15 @@ fn spawn_obstacles(
     commands.insert_resource(PlatformTimer(Instant::now()));
 }
 
-const PLATFORM_MIN_WIDTH: f32 = 250.;
-const PLATFORM_MIN_HEIGHT: f32 = 20.;
+const PLATFORM_START_WIDTH: f32 = 250.;
+const PLATFORM_MIN_WIDTH: f32 = 15.;
+const PLATFORM_HEIGHT: f32 = 20.;
 const PLATFORM_MIN_Y: f32 = 150.;
 
 fn emit_platforms(
     mut commands: Commands,
     timer: Res<PlatformTimer>,
+    score: Res<Score>,
     asset_server: Res<AssetServer>,
     last_wall_query: Query<&LastWall>,
     window_query: Query<&Window, With<PrimaryWindow>>,
@@ -145,16 +143,21 @@ fn emit_platforms(
     // Reset timer
     commands.insert_resource(PlatformTimer(Instant::now()));
 
-    let platform_width = random::<f32>() * PLATFORM_MIN_WIDTH + 50.;
-    let platform_height = PLATFORM_MIN_HEIGHT;
+    // Platforms should get smaller as the score increases
+    let platform_base_width = PLATFORM_START_WIDTH - score.0 as f32 * 20.;
+    let platform_rand_width =
+        (random::<f32>() * 0.2 * platform_base_width) + 0.8 * platform_base_width;
+
+    let platform_width = f32::max(PLATFORM_MIN_WIDTH, platform_rand_width);
+    let platform_height = PLATFORM_HEIGHT;
     let platform_y = PLATFORM_MIN_Y + random::<f32>() * (window.height() / 15.);
     let (platform_x, velocity) = match last_wall_query.get_single() {
         Ok(LastWall(Wall::Left)) => (
-            window.width() + PLATFORM_MIN_WIDTH,
+            window.width() + PLATFORM_START_WIDTH,
             Vec2::new(-(random::<f32>() * 0. + 150.), 0.),
         ),
         Ok(LastWall(Wall::Right)) => (
-            -PLATFORM_MIN_WIDTH,
+            -PLATFORM_START_WIDTH,
             Vec2::new(random::<f32>() * 0. + 150., 0.),
         ),
         Err(_) => return,
