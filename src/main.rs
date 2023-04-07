@@ -8,7 +8,7 @@ use player::PlayerPlugin;
 
 mod animation;
 mod events;
-mod physics;
+pub mod physics;
 mod player;
 mod ui;
 
