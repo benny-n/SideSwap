@@ -22,10 +22,6 @@ impl BevyPhysicsHooks for CustomCollisionHook {
     fn modify_solver_contacts(&self, context: ContactModificationContextView<'_, '_>) {
         let allowed_normal = -Vector::y();
         context.raw.update_as_oneway_platform(&allowed_normal, 0.);
-        // // for contact in context.raw.solver_contacts.iter_mut() {
-        // //     contact.
-        // // }
-        // context.raw.manifold
     }
 }
 
@@ -39,13 +35,9 @@ impl Plugin for PhysicsPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(spawn_obstacles.in_schedule(OnEnter(AppState::InGame)))
             .add_plugin(RapierPhysicsPlugin::<CustomCollisionHook>::pixels_per_meter(100.0))
-            .add_plugin(RapierDebugRenderPlugin::default()) // TODO: remove this
+            // .add_plugin(RapierDebugRenderPlugin::default()) // TODO: remove this
             .add_systems(
-                (
-                    emit_platforms,
-                    // move_platforms,
-                    despawn_out_of_screen_platforms,
-                )
+                (emit_platforms, despawn_out_of_screen_platforms)
                     .in_set(OnUpdate(AppState::InGame)),
             )
             .add_systems(
@@ -109,6 +101,7 @@ fn spawn_obstacles(mut commands: Commands, window_query: Query<&Window, With<Pri
 }
 
 const PLATFORM_MIN_WIDTH: f32 = 250.;
+const PLATFORM_MIN_HEIGHT: f32 = 20.;
 
 fn emit_platforms(
     mut commands: Commands,
@@ -127,8 +120,8 @@ fn emit_platforms(
     commands.insert_resource(PlatformTimer(Instant::now()));
 
     let platform_width = random::<f32>() * PLATFORM_MIN_WIDTH + 50.;
-    let platform_height = 20.;
-    let platform_y = random::<f32>() * (window.height() / 4.);
+    let platform_height = PLATFORM_MIN_HEIGHT;
+    let platform_y = platform_height + random::<f32>() * (window.height() / 15.);
     let (platform_x, velocity) = match last_wall_query.get_single() {
         Ok(LastWall(Wall::Left)) => (
             window.width() + PLATFORM_MIN_WIDTH,
@@ -141,11 +134,8 @@ fn emit_platforms(
         Err(_) => return,
     };
 
-    info!("Velocity: {:?}", velocity);
-
     commands
         .spawn(RigidBody::KinematicVelocityBased)
-        // .insert(ColliderMassProperties::Mass(1000.))
         .insert(Collider::cuboid(platform_width / 2., platform_height / 2.))
         .insert(SpriteBundle {
             sprite: Sprite {
@@ -164,16 +154,6 @@ fn emit_platforms(
         .insert(Velocity::linear(velocity))
         .insert(ActiveHooks::MODIFY_SOLVER_CONTACTS)
         .insert(Platform);
-}
-
-fn move_platforms(time: Res<Time>, mut query: Query<(&mut Transform, &Velocity), With<Platform>>) {
-    for (mut transform, velocity) in query.iter_mut() {
-        transform.translation.x += velocity.linvel.x * time.delta_seconds();
-        // info!(
-        //     "Moving platform to ({}, {}), velocity: ({:?})",
-        //     transform.translation.x, transform.translation.y, velocity
-        // );
-    }
 }
 
 fn despawn_out_of_screen_platforms(

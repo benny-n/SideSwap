@@ -8,7 +8,7 @@ use crate::{
     AppState, Wall,
 };
 
-const PLAYER_SPEED: f32 = 100.;
+const PLAYER_SPEED: f32 = 125.;
 const JUMP_VELOCITY: f32 = 200.;
 const PLAYER_SIZE: f32 = 150.;
 const HALF_PLAYER_SIZE: f32 = PLAYER_SIZE / 2.;
@@ -41,19 +41,10 @@ impl Plugin for PlayerPlugin {
                     change_player_animation,
                     send_wall_reached_event,
                     move_player,
-                    // debug_velocity.after(player_input).after(move_player),
                 )
                     .in_set(OnUpdate(AppState::InGame)),
             )
-            .add_system(move_player.in_base_set(PhysicsSet::StepSimulation))
-            // .add_system(debug_velocity.in_base_set(CoreSet::PostUpdate))
             .add_system(despawn_player.in_schedule(OnExit(AppState::InGame)));
-    }
-}
-
-fn debug_velocity(mut query: Query<&Velocity, With<Player>>) {
-    for velocity in &mut query {
-        info!("DEBUG velocity: {:?}", velocity.linvel.x);
     }
 }
 
@@ -138,7 +129,7 @@ fn spawn_player(
         })
         .insert(Collider::cuboid(HALF_PLAYER_SIZE / 2., HALF_PLAYER_SIZE))
         .insert(KinematicCharacterController {
-            snap_to_ground: Some(CharacterLength::Absolute(0.5)),
+            // snap_to_ground: Some(CharacterLength::Absolute(1.0)),
             slide: false,
             ..default()
         })
@@ -158,14 +149,13 @@ fn spawn_player(
 /* Read the character controller collisions stored in the character controller’s output. */
 fn handle_player_collisions(
     wall_query: Query<&Wall>,
-    plat_query: Query<(&Transform, &Velocity), (With<Platform>, Without<Player>)>,
+    plat_query: Query<&Transform, (With<Platform>, Without<Player>)>,
     rapier_context: Res<RapierContext>,
     mut commands: Commands,
     mut character_controller_outputs: Query<
         (
             Entity,
             &Transform,
-            &mut Velocity,
             Option<&LastWall>,
             Option<&ImpulseJoint>,
             &KinematicCharacterControllerOutput,
@@ -173,27 +163,21 @@ fn handle_player_collisions(
         With<Player>,
     >,
 ) {
-    for (player, player_transform, mut player_velocity, last_wall, joint, output) in
+    for (player, player_transform, last_wall, joint, output) in
         character_controller_outputs.iter_mut()
     {
         for collision in &output.collisions {
-            // Do something with that collision information.
-            // info!("Collision: {:?}", collision); //TODO: move ReachedWall event here
-
             let collided_with = collision.entity;
             let new_wall = wall_query.get_component::<Wall>(collided_with).ok();
-            match (last_wall, new_wall) {
-                (Some(last), Some(new)) if last.0 != *new => {
-                    info!("reached new wall");
-                    commands.entity(player).insert(LastWall(*new));
+            if let Some(new) = new_wall {
+                if last_wall.is_none() || matches!(last_wall, Some(last) if last.0 != *new) {
+                    commands
+                        .entity(player)
+                        .insert(LastWall(*new))
+                        .remove::<ImpulseJoint>();
                 }
-                (None, Some(new)) => {
-                    info!("reached wall");
-                    commands.entity(player).insert(LastWall(*new));
-                }
-                _ => {}
             }
-            let Some((platform_transform, platform_velocity) )= plat_query.get(collided_with).ok() else {
+            let Some(platform_transform )= plat_query.get(collided_with).ok() else {
                 continue;
             };
             let Some(contact) = rapier_context.contact_pair(player, collided_with) else {
@@ -203,7 +187,6 @@ fn handle_player_collisions(
                 continue;
             };
             if manifold.normal() == Vec2::new(0., -1.) && joint.is_none() {
-                player_velocity.linvel.x = 0.;
                 let joint = FixedJointBuilder::new().local_anchor2(Vec2::new(
                     (platform_transform.translation - player_transform.translation).x,
                     -HALF_PLAYER_SIZE,
@@ -211,10 +194,6 @@ fn handle_player_collisions(
                 commands
                     .entity(player)
                     .insert(ImpulseJoint::new(collided_with, joint));
-                info!(
-                    "player {:?} on platform {:?}",
-                    player_velocity.linvel.x, platform_velocity.linvel.x
-                );
             }
         }
     }
@@ -222,12 +201,9 @@ fn handle_player_collisions(
 
 fn move_player(
     time: Res<Time>,
-    mut query: Query<(&Velocity, &mut Transform, &mut KinematicCharacterController), With<Player>>,
+    mut query: Query<(&Velocity, &mut KinematicCharacterController), With<Player>>,
 ) {
-    for (velocity, mut transform, mut controller) in query.iter_mut() {
-        // velocity.linvel.x = velocity.linvel.x.clamp(-PLAYER_SPEED, PLAYER_SPEED);
-        // let translation = Vec3::new(velocity.linvel.x, velocity.linvel.y, 0.);
-        // transform.translation += translation;
+    for (velocity, mut controller) in query.iter_mut() {
         controller.translation = Some(velocity.linvel * time.delta_seconds());
     }
 }
@@ -249,6 +225,7 @@ fn player_input(
         }
         if keyboard_input.pressed(KeyCode::Space) && velocity.linvel.y.abs() <= 0.001 {
             velocity.linvel.y += JUMP_VELOCITY;
+            velocity.linvel.x = 0.;
             commands.entity(player).remove::<ImpulseJoint>();
         }
     }
