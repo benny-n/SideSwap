@@ -108,7 +108,7 @@ fn spawn_obstacles(mut commands: Commands, window_query: Query<&Window, With<Pri
     commands.insert_resource(PlatformTimer(Instant::now()));
 }
 
-const PLATFORM_MIN_WIDTH: f32 = 500.;
+const PLATFORM_MIN_WIDTH: f32 = 250.;
 
 fn emit_platforms(
     mut commands: Commands,
@@ -145,6 +145,7 @@ fn emit_platforms(
 
     commands
         .spawn(RigidBody::KinematicVelocityBased)
+        // .insert(ColliderMassProperties::Mass(1000.))
         .insert(Collider::cuboid(platform_width / 2., platform_height / 2.))
         .insert(SpriteBundle {
             sprite: Sprite {
@@ -157,8 +158,8 @@ fn emit_platforms(
             ..default()
         })
         .insert(Friction {
-            coefficient: 2.,
-            combine_rule: CoefficientCombineRule::Max,
+            coefficient: 0.,
+            combine_rule: CoefficientCombineRule::Min,
         })
         .insert(Velocity::linear(velocity))
         .insert(ActiveHooks::MODIFY_SOLVER_CONTACTS)

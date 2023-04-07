@@ -138,12 +138,13 @@ fn spawn_player(
         })
         .insert(Collider::cuboid(HALF_PLAYER_SIZE / 2., HALF_PLAYER_SIZE))
         .insert(KinematicCharacterController {
-            // snap_to_ground: None,
-            // slide: false,
+            snap_to_ground: Some(CharacterLength::Absolute(0.5)),
+            slide: false,
             ..default()
         })
         .insert(Ccd::enabled())
-        .insert(ColliderMassProperties::Mass(0.001))
+        .insert(ActiveEvents::COLLISION_EVENTS)
+        // .insert(ColliderMassProperties::Mass(1.0))
         .insert(AnimationTimer(Timer::from_seconds(
             1. / idle.fps as f32,
             TimerMode::Repeating,
@@ -157,20 +158,23 @@ fn spawn_player(
 /* Read the character controller collisions stored in the character controller’s output. */
 fn handle_player_collisions(
     wall_query: Query<&Wall>,
-    plat_query: Query<&Velocity, (With<Platform>, Without<Player>)>,
+    plat_query: Query<(&Transform, &Velocity), (With<Platform>, Without<Player>)>,
     rapier_context: Res<RapierContext>,
     mut commands: Commands,
     mut character_controller_outputs: Query<
         (
             Entity,
+            &Transform,
             &mut Velocity,
             Option<&LastWall>,
+            Option<&ImpulseJoint>,
             &KinematicCharacterControllerOutput,
         ),
         With<Player>,
     >,
 ) {
-    for (player, mut player_velocity, last_wall, output) in character_controller_outputs.iter_mut()
+    for (player, player_transform, mut player_velocity, last_wall, joint, output) in
+        character_controller_outputs.iter_mut()
     {
         for collision in &output.collisions {
             // Do something with that collision information.
@@ -189,7 +193,7 @@ fn handle_player_collisions(
                 }
                 _ => {}
             }
-            let Some(platform_velocity )= plat_query.get(collided_with).ok() else {
+            let Some((platform_transform, platform_velocity) )= plat_query.get(collided_with).ok() else {
                 continue;
             };
             let Some(contact) = rapier_context.contact_pair(player, collided_with) else {
@@ -198,11 +202,15 @@ fn handle_player_collisions(
             let Some(manifold) = contact.manifolds().next() else {
                 continue;
             };
-            if manifold.normal() == Vec2::new(0., -1.) {
-                // commands
-                //     .entity(player)
-                //     .insert(OnPlatform(*platform_velocity));
+            if manifold.normal() == Vec2::new(0., -1.) && joint.is_none() {
                 player_velocity.linvel.x = 0.;
+                let joint = FixedJointBuilder::new().local_anchor2(Vec2::new(
+                    (platform_transform.translation - player_transform.translation).x,
+                    -HALF_PLAYER_SIZE,
+                ));
+                commands
+                    .entity(player)
+                    .insert(ImpulseJoint::new(collided_with, joint));
                 info!(
                     "player {:?} on platform {:?}",
                     player_velocity.linvel.x, platform_velocity.linvel.x
@@ -218,30 +226,30 @@ fn move_player(
 ) {
     for (velocity, mut transform, mut controller) in query.iter_mut() {
         // velocity.linvel.x = velocity.linvel.x.clamp(-PLAYER_SPEED, PLAYER_SPEED);
-        let translation = Vec3::new(
-            velocity.linvel.x * time.delta_seconds(),
-            velocity.linvel.y * time.delta_seconds(),
-            0.,
-        );
+        // let translation = Vec3::new(velocity.linvel.x, velocity.linvel.y, 0.);
         // transform.translation += translation;
-        controller.translation = Some(Vec2::new(translation.x, translation.y));
+        controller.translation = Some(velocity.linvel * time.delta_seconds());
     }
 }
 
 fn player_input(
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(&mut Velocity, &mut Facing), With<Player>>,
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut Velocity, &mut Facing), With<Player>>,
 ) {
-    for (mut velocity, mut facing) in query.iter_mut() {
+    for (player, mut velocity, mut facing) in query.iter_mut() {
         if keyboard_input.pressed(KeyCode::A) {
             velocity.linvel.x = -PLAYER_SPEED;
             *facing = Facing::Left;
+            commands.entity(player).remove::<ImpulseJoint>();
         } else if keyboard_input.pressed(KeyCode::D) {
             velocity.linvel.x = PLAYER_SPEED;
             *facing = Facing::Right;
+            commands.entity(player).remove::<ImpulseJoint>();
         }
         if keyboard_input.pressed(KeyCode::Space) && velocity.linvel.y.abs() <= 0.001 {
             velocity.linvel.y += JUMP_VELOCITY;
+            commands.entity(player).remove::<ImpulseJoint>();
         }
     }
 }
