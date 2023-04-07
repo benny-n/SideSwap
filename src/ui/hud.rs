@@ -4,8 +4,11 @@ use crate::Score;
 
 const TIME_SECTION: usize = 1;
 const SCORE_SECTION: usize = 1;
+const DIRECTION_SECTION: usize = 0;
 #[derive(Component)]
 pub struct Hud;
+#[derive(Component)]
+pub struct DirectionText;
 
 const fn hud_text_style(font: Handle<Font>) -> TextStyle {
     TextStyle {
@@ -15,17 +18,8 @@ const fn hud_text_style(font: Handle<Font>) -> TextStyle {
     }
 }
 
-const HUD_TOP_LEFT: Style = Style {
-    position_type: PositionType::Absolute,
-    position: UiRect::new(Val::Px(16.), Val::Auto, Val::Px(0.), Val::Auto),
-    ..Style::DEFAULT
-};
-
-const HUD_TOP_RIGHT: Style = Style {
-    position_type: PositionType::Absolute,
-    position: UiRect::new(Val::Px(600.), Val::Auto, Val::Px(0.), Val::Auto),
-    ..Style::DEFAULT
-};
+const GO_LEFT_TEXT: &str = "<<<";
+const GO_RIGHT_TEXT: &str = ">>>";
 
 #[derive(Resource, Deref, DerefMut)]
 pub struct Timer(pub Instant);
@@ -57,14 +51,29 @@ pub fn update_score(score: Res<Score>, mut query: Query<&mut Text, With<ScoreTex
     }
 }
 
+pub fn update_direction(score: Res<Score>, mut query: Query<&mut Text, With<DirectionText>>) {
+    if score.is_changed() {
+        let Ok(mut text) = query.get_single_mut() else {
+            return;
+        };
+        match text.sections[DIRECTION_SECTION].value.as_str() {
+            GO_LEFT_TEXT => text.sections[DIRECTION_SECTION].value = GO_RIGHT_TEXT.to_string(),
+            GO_RIGHT_TEXT => text.sections[DIRECTION_SECTION].value = GO_LEFT_TEXT.to_string(),
+            _ => {}
+        }
+    }
+}
+
 pub fn spawn_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     commands
         .spawn((
             NodeBundle {
                 style: Style {
+                    flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::SpaceBetween,
-                    align_content: AlignContent::SpaceBetween,
+                    size: Size::new(Val::Percent(100.), Val::Auto),
+                    // align_content: AlignContent::SpaceBetween,
                     ..default()
                 },
                 ..default()
@@ -74,7 +83,10 @@ pub fn spawn_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|parent| {
             parent.spawn((
                 TextBundle {
-                    style: HUD_TOP_LEFT,
+                    style: Style {
+                        margin: UiRect::horizontal(Val::Px(16.)),
+                        ..default()
+                    },
                     text: Text {
                         sections: vec![
                             TextSection::new("Timer: ", hud_text_style(font.clone())),
@@ -88,7 +100,24 @@ pub fn spawn_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
             ));
             parent.spawn((
                 TextBundle {
-                    style: HUD_TOP_RIGHT,
+                    style: Style {
+                        margin: UiRect::horizontal(Val::Px(16.)),
+                        ..default()
+                    },
+                    text: Text {
+                        sections: vec![TextSection::new(">>>", hud_text_style(font.clone()))],
+                        ..default()
+                    },
+                    ..default()
+                },
+                DirectionText,
+            ));
+            parent.spawn((
+                TextBundle {
+                    style: Style {
+                        margin: UiRect::horizontal(Val::Px(16.)),
+                        ..default()
+                    },
                     text: Text {
                         sections: vec![
                             TextSection::new("Score: ", hud_text_style(font.clone())),

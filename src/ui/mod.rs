@@ -2,7 +2,9 @@ use bevy::prelude::*;
 
 use crate::AppState;
 
-use self::hud::{despawn_hud, spawn_hud, start_timer, update_score, update_timer};
+use self::hud::{
+    despawn_hud, spawn_hud, start_timer, update_direction, update_score, update_timer,
+};
 use self::menu::{despawn_main_menu, spawn_main_menu};
 use self::replay::{despawn_replay_screen, spawn_replay_screen};
 
@@ -20,7 +22,9 @@ impl Plugin for UIPlugin {
             .add_systems((spawn_hud, start_timer).in_schedule(OnEnter(AppState::InGame)))
             .add_system(click_play_button.in_set(OnUpdate(AppState::MainMenu)))
             .add_system(click_play_button.in_set(OnUpdate(AppState::YouDied)))
-            .add_systems((update_timer, update_score).in_set(OnUpdate(AppState::InGame)))
+            .add_systems(
+                (update_score, update_timer, update_direction).in_set(OnUpdate(AppState::InGame)),
+            )
             .add_system(despawn_main_menu.in_schedule(OnExit(AppState::MainMenu)))
             .add_system(despawn_hud.in_schedule(OnExit(AppState::InGame)))
             .add_system(despawn_replay_screen.in_schedule(OnExit(AppState::YouDied)));
