@@ -1,21 +1,20 @@
-use bevy::{prelude::*, utils::HashMap, window::PrimaryWindow};
+use bevy::{prelude::*, utils::HashMap};
+use bevy_rapier2d::prelude::*;
 
 use crate::{
     animation::{Animation, AnimationTimer, Animations},
     events::WallReached,
+    physics::Platform,
     AppState, Wall,
 };
 
-const PLAYER_SPEED: f32 = 500.;
-const PLAYER_ACCELERATION: f32 = PLAYER_SPEED / 2.;
-const JUMP_VELOCITY: f32 = 1750.;
+const PLAYER_SPEED: f32 = 125.;
+const JUMP_VELOCITY: f32 = 200.;
 const PLAYER_SIZE: f32 = 150.;
 const HALF_PLAYER_SIZE: f32 = PLAYER_SIZE / 2.;
-const FRICTION: f32 = PLAYER_ACCELERATION * 2.;
-const GRAVITY: f32 = 250.;
 
 #[derive(Component)]
-struct Player;
+pub struct Player;
 
 #[derive(Component, Default, Debug, Clone, Copy)]
 pub enum Facing {
@@ -24,11 +23,11 @@ pub enum Facing {
     Left,
 }
 
-#[derive(Component)]
-struct Midair;
+#[derive(Component, DerefMut, Deref)]
+struct OnPlatform(pub Velocity);
 
 #[derive(Component, DerefMut, Deref)]
-struct Velocity(Vec2);
+pub struct LastWall(pub Wall);
 
 pub struct PlayerPlugin;
 
@@ -37,13 +36,11 @@ impl Plugin for PlayerPlugin {
         app.add_system(spawn_player.in_schedule(OnEnter(AppState::InGame)))
             .add_systems(
                 (
-                    player_input,
-                    gravity,
-                    land_on_ground,
+                    handle_player_collisions,
+                    player_input.after(handle_player_collisions),
                     change_player_animation,
-                    move_player,
-                    confine_player_in_screen,
                     send_wall_reached_event,
+                    move_player,
                 )
                     .in_set(OnUpdate(AppState::InGame)),
             )
@@ -111,14 +108,34 @@ fn spawn_player(
 
     commands
         .spawn(Player)
-        .insert(Velocity(Vec2::new(0., 0.)))
         .insert(Facing::default())
         .insert(SpriteSheetBundle {
             texture_atlas: idle.handle.clone(),
             sprite: TextureAtlasSprite::new(0),
-            transform: Transform::from_xyz(HALF_PLAYER_SIZE, HALF_PLAYER_SIZE, 0.0),
+            transform: Transform::from_xyz(HALF_PLAYER_SIZE, HALF_PLAYER_SIZE + 10., 0.),
             ..default()
         })
+        .insert(RigidBody::Dynamic)
+        .insert(LockedAxes::ROTATION_LOCKED)
+        // .insert(ActiveHooks::MODIFY_SOLVER_CONTACTS)
+        .insert(GravityScale(5.))
+        .insert(Velocity {
+            linvel: Vec2::new(0., 0.),
+            angvel: 0.,
+        })
+        .insert(Restitution {
+            coefficient: 0.,
+            combine_rule: CoefficientCombineRule::Min,
+        })
+        .insert(Collider::cuboid(HALF_PLAYER_SIZE / 2., HALF_PLAYER_SIZE))
+        .insert(KinematicCharacterController {
+            // snap_to_ground: Some(CharacterLength::Absolute(1.0)),
+            slide: false,
+            ..default()
+        })
+        .insert(Ccd::enabled())
+        .insert(ActiveEvents::COLLISION_EVENTS)
+        // .insert(ColliderMassProperties::Mass(1.0))
         .insert(AnimationTimer(Timer::from_seconds(
             1. / idle.fps as f32,
             TimerMode::Repeating,
@@ -129,99 +146,119 @@ fn spawn_player(
     });
 }
 
-fn move_player(time: Res<Time>, mut query: Query<(&mut Velocity, &mut Transform), With<Player>>) {
-    for (mut velocity, mut transform) in query.iter_mut() {
-        velocity.x = velocity.x.clamp(-PLAYER_SPEED, PLAYER_SPEED);
-        transform.translation += Vec3::new(
-            velocity.x * time.delta_seconds(),
-            velocity.y * time.delta_seconds(),
-            0.,
-        );
+/* Read the character controller collisions stored in the character controller’s output. */
+fn handle_player_collisions(
+    wall_query: Query<&Wall>,
+    plat_query: Query<&Transform, (With<Platform>, Without<Player>)>,
+    rapier_context: Res<RapierContext>,
+    mut commands: Commands,
+    mut character_controller_outputs: Query<
+        (
+            Entity,
+            &Transform,
+            Option<&LastWall>,
+            Option<&ImpulseJoint>,
+            &KinematicCharacterControllerOutput,
+        ),
+        With<Player>,
+    >,
+) {
+    for (player, player_transform, last_wall, joint, output) in
+        character_controller_outputs.iter_mut()
+    {
+        for collision in &output.collisions {
+            let collided_with = collision.entity;
+            let new_wall = wall_query.get_component::<Wall>(collided_with).ok();
+            if let Some(new) = new_wall {
+                if last_wall.is_none() || matches!(last_wall, Some(last) if last.0 != *new) {
+                    commands
+                        .entity(player)
+                        .insert(LastWall(*new))
+                        .remove::<ImpulseJoint>();
+                }
+            }
+            let Some(platform_transform )= plat_query.get(collided_with).ok() else {
+                continue;
+            };
+            let Some(contact) = rapier_context.contact_pair(player, collided_with) else {
+                continue;
+            };
+            let Some(manifold) = contact.manifolds().next() else {
+                continue;
+            };
+            if manifold.normal() == Vec2::new(0., -1.) && joint.is_none() {
+                let joint = FixedJointBuilder::new().local_anchor2(Vec2::new(
+                    (platform_transform.translation - player_transform.translation).x,
+                    -HALF_PLAYER_SIZE,
+                ));
+                commands
+                    .entity(player)
+                    .insert(ImpulseJoint::new(collided_with, joint));
+            }
+        }
+    }
+}
+
+fn move_player(
+    time: Res<Time>,
+    mut query: Query<(&Velocity, &mut KinematicCharacterController), With<Player>>,
+) {
+    for (velocity, mut controller) in query.iter_mut() {
+        controller.translation = Some(velocity.linvel * time.delta_seconds());
     }
 }
 
 fn player_input(
-    mut commands: Commands,
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(Entity, &mut Velocity, &mut Facing, Option<&Midair>), With<Player>>,
-) {
-    for (player, mut velocity, mut facing, optionally_midair) in query.iter_mut() {
-        if keyboard_input.pressed(KeyCode::A) {
-            velocity.x -= PLAYER_ACCELERATION;
-            *facing = Facing::Left;
-        } else if keyboard_input.pressed(KeyCode::D) {
-            velocity.x += PLAYER_ACCELERATION;
-            *facing = Facing::Right;
-        } else {
-            let delta = f32::min(velocity.x.abs(), FRICTION);
-            velocity.x -= velocity.x.signum() * delta;
-        }
-        if keyboard_input.pressed(KeyCode::Space) && optionally_midair.is_none() {
-            velocity.y += JUMP_VELOCITY;
-            commands.entity(player).insert(Midair);
-        }
-    }
-}
-
-fn confine_player_in_screen(
     mut commands: Commands,
-    mut player_query: Query<(Entity, &mut Transform, Option<&Wall>), With<Player>>,
-    window_query: Query<&Window, With<PrimaryWindow>>,
+    mut query: Query<(Entity, &mut Velocity, &mut Facing), With<Player>>,
 ) {
-    let Ok(window) = window_query.get_single() else {
-        return;
-    };
-
-    let Ok((player, mut player_transform, wall)) = player_query.get_single_mut() else {
-        return;
-    };
-
-    let x_min = 0.0 + HALF_PLAYER_SIZE / 2.;
-    let x_max = window.width() - HALF_PLAYER_SIZE / 2.;
-    let y_min = 0.0 + HALF_PLAYER_SIZE;
-    let y_max = window.height() - HALF_PLAYER_SIZE;
-
-    let mut translation = player_transform.translation;
-
-    translation.x = translation.x.clamp(x_min, x_max);
-    translation.y = translation.y.clamp(y_min, y_max);
-
-    player_transform.translation = translation;
-
-    // Insert a wall component if the player is at the edge of the screen
-    // This is used to send a WallReached event
-    if translation.x == x_min && wall != Some(&Wall::Left) {
-        commands.entity(player).insert(Wall::Left);
-    } else if translation.x == x_max && wall != Some(&Wall::Right) {
-        commands.entity(player).insert(Wall::Right);
+    for (player, mut velocity, mut facing) in query.iter_mut() {
+        if keyboard_input.pressed(KeyCode::A) {
+            velocity.linvel.x = -PLAYER_SPEED;
+            *facing = Facing::Left;
+            commands.entity(player).remove::<ImpulseJoint>();
+        } else if keyboard_input.pressed(KeyCode::D) {
+            velocity.linvel.x = PLAYER_SPEED;
+            *facing = Facing::Right;
+            commands.entity(player).remove::<ImpulseJoint>();
+        }
+        if keyboard_input.pressed(KeyCode::Space) && velocity.linvel.y.abs() <= 0.001 {
+            velocity.linvel.y += JUMP_VELOCITY;
+            velocity.linvel.x = 0.;
+            commands.entity(player).remove::<ImpulseJoint>();
+        }
     }
 }
 
 fn send_wall_reached_event(
     mut wall_reached_events: EventWriter<WallReached>,
-    mut query: Query<(&Wall, Changed<Wall>), With<Player>>,
+    mut query: Query<(&LastWall, Changed<LastWall>), With<Player>>,
 ) {
     // only send the event if the wall that was reached is new
     if let Ok((wall, reached_new_wall)) = query.get_single_mut() {
         if reached_new_wall {
-            wall_reached_events.send(WallReached(*wall));
+            wall_reached_events.send(WallReached(**wall));
         }
     };
 }
 
 fn change_player_animation(
+    keyboard_input: Res<Input<KeyCode>>,
     mut commands: Commands,
-    mut query: Query<(Entity, &Velocity, Option<&Midair>), With<Player>>,
+    mut query: Query<(Entity, &Velocity), With<Player>>,
     mut animations: ResMut<Animations>,
 ) {
-    for (player, velocity, optionally_midair) in query.iter_mut() {
+    for (player, velocity) in query.iter_mut() {
         let old_animation_handle = animations.active.handle.clone();
-        animations.active = if optionally_midair.is_some() {
+        animations.active = if velocity.linvel.y.abs() >= 0.1 {
             &animations.map["jump"]
-        } else if velocity.x == 0. {
+        } else if velocity.linvel.x.abs() <= 0.001 {
             &animations.map["idle"]
-        } else {
+        } else if keyboard_input.pressed(KeyCode::A) || keyboard_input.pressed(KeyCode::D) {
             &animations.map["run"]
+        } else {
+            &animations.map["idle"]
         }
         .clone();
         if animations.active.handle == old_animation_handle {
@@ -235,24 +272,6 @@ fn change_player_animation(
                 TimerMode::Repeating,
             )),
         ));
-    }
-}
-
-fn gravity(mut query: Query<&mut Velocity, With<Midair>>) {
-    for mut velocity in query.iter_mut() {
-        velocity.y -= GRAVITY;
-    }
-}
-
-fn land_on_ground(
-    mut commands: Commands,
-    mut query: Query<(Entity, &Transform, &mut Velocity), With<Midair>>,
-) {
-    for (player, transform, mut velocity) in query.iter_mut() {
-        if transform.translation.y - HALF_PLAYER_SIZE <= 0. {
-            velocity.y = 0.;
-            commands.entity(player).remove::<Midair>();
-        }
     }
 }
 

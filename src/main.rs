@@ -3,10 +3,12 @@
 use animation::AnimatorPlugin;
 use bevy::{prelude::*, window::PrimaryWindow};
 use events::WallReached;
+use physics::PhysicsPlugin;
 use player::PlayerPlugin;
 
 mod animation;
 mod events;
+pub mod physics;
 mod player;
 mod ui;
 
@@ -34,6 +36,7 @@ fn main() {
         .add_event::<WallReached>()
         .add_plugin(ui::UIPlugin)
         .add_plugin(AnimatorPlugin)
+        .add_plugin(PhysicsPlugin)
         .add_plugin(PlayerPlugin)
         .run();
 }
