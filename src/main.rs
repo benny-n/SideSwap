@@ -2,7 +2,7 @@
 
 use animation::AnimatorPlugin;
 use bevy::{prelude::*, window::PrimaryWindow};
-use events::WallReached;
+use events::EventPlugin;
 use physics::PhysicsPlugin;
 use player::PlayerPlugin;
 
@@ -18,9 +18,12 @@ pub enum Wall {
     Right,
 }
 
+#[derive(Resource)]
+pub struct Score(pub usize);
+
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::WHITE))
+        .insert_resource(ClearColor(Color::rgb_u8(166, 234, 255)))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Jam #3".into(),
@@ -30,11 +33,12 @@ fn main() {
             }),
             ..default()
         }))
-        .add_startup_system(spawn_camera)
         .add_state::<AppState>()
+        .add_startup_system(spawn_camera)
+        .add_system(reset_score.in_schedule(OnEnter(AppState::InGame)))
         .add_system(exit_game.in_set(OnUpdate(AppState::InGame)))
-        .add_event::<WallReached>()
         .add_plugin(ui::UIPlugin)
+        .add_plugin(EventPlugin)
         .add_plugin(AnimatorPlugin)
         .add_plugin(PhysicsPlugin)
         .add_plugin(PlayerPlugin)
@@ -49,6 +53,10 @@ fn spawn_camera(mut commands: Commands, window_query: Query<&Window, With<Primar
         transform: Transform::from_xyz(window.width() / 2.0, window.height() / 2.0, 0.0),
         ..default()
     });
+}
+
+fn reset_score(mut commands: Commands) {
+    commands.insert_resource(Score(0));
 }
 
 fn exit_game(keyboard_input: Res<Input<KeyCode>>, mut state: ResMut<NextState<AppState>>) {

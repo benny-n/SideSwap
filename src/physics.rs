@@ -51,34 +51,38 @@ impl Plugin for PhysicsPlugin {
     }
 }
 
-fn spawn_obstacles(mut commands: Commands, window_query: Query<&Window, With<PrimaryWindow>>) {
+fn spawn_obstacles(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+) {
     let Ok(window) = window_query.get_single() else {
         return;
     };
 
     let ground_width = window.width();
-    let ground_height = 15.;
-    let wall_width = 15.;
+    let ground_height = 150.;
+    let wall_width = 50.;
     let wall_height = window.height();
 
     // Ground
     commands
         // .spawn(RigidBody::Fixed)
-        .spawn(Collider::cuboid(ground_width / 2., ground_height / 4.))
-        .insert(SpriteBundle {
+        // .spawn(Collider::cuboid(ground_width / 2., ground_height / 2.))
+        .spawn(SpriteBundle {
             sprite: Sprite {
                 // brownish
-                color: Color::rgb(0.5, 0.3, 0.1),
                 custom_size: Some(Vec2::new(ground_width, ground_height)),
                 ..default()
             },
-            transform: Transform::from_translation(Vec3::new(ground_width / 2., 0., 0.)),
+            texture: asset_server.load("textures/lava.png"),
+            transform: Transform::from_translation(Vec3::new(ground_width / 2., -20., 0.)),
             ..default()
         })
         .insert(Ground);
 
     // Walls
-    [(0., Wall::Left), (window.width(), Wall::Right)]
+    [(-10., Wall::Left), (10. + window.width(), Wall::Right)]
         .into_iter()
         .for_each(|(x, wall)| {
             commands
@@ -91,21 +95,43 @@ fn spawn_obstacles(mut commands: Commands, window_query: Query<&Window, With<Pri
                         custom_size: Some(Vec2::new(wall_width, wall_height)),
                         ..default()
                     },
-                    transform: Transform::from_translation(Vec3::new(x, wall_height / 2., 0.)),
+                    texture: asset_server.load("textures/brick.png"),
+                    transform: Transform::from_xyz(x, wall_height / 2., 0.),
                     ..default()
                 })
                 .insert(wall);
         });
+
+    // Starting platform
+    commands
+        .spawn(RigidBody::KinematicVelocityBased)
+        .insert(Collider::cuboid(
+            PLATFORM_MIN_WIDTH / 2.,
+            PLATFORM_MIN_HEIGHT / 2.,
+        ))
+        .insert(SpriteBundle {
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(PLATFORM_MIN_WIDTH, PLATFORM_MIN_HEIGHT)),
+                ..default()
+            },
+            texture: asset_server.load("textures/brick.png"),
+            transform: Transform::from_xyz(10., PLATFORM_MIN_Y, 0.),
+            ..default()
+        })
+        .insert(Platform)
+        .insert(Velocity::linear(Vec2::new(-10., 0.)));
 
     commands.insert_resource(PlatformTimer(Instant::now()));
 }
 
 const PLATFORM_MIN_WIDTH: f32 = 250.;
 const PLATFORM_MIN_HEIGHT: f32 = 20.;
+const PLATFORM_MIN_Y: f32 = 150.;
 
 fn emit_platforms(
     mut commands: Commands,
     timer: Res<PlatformTimer>,
+    asset_server: Res<AssetServer>,
     last_wall_query: Query<&LastWall>,
     window_query: Query<&Window, With<PrimaryWindow>>,
 ) {
@@ -121,7 +147,7 @@ fn emit_platforms(
 
     let platform_width = random::<f32>() * PLATFORM_MIN_WIDTH + 50.;
     let platform_height = PLATFORM_MIN_HEIGHT;
-    let platform_y = platform_height + random::<f32>() * (window.height() / 15.);
+    let platform_y = PLATFORM_MIN_Y + random::<f32>() * (window.height() / 15.);
     let (platform_x, velocity) = match last_wall_query.get_single() {
         Ok(LastWall(Wall::Left)) => (
             window.width() + PLATFORM_MIN_WIDTH,
@@ -139,11 +165,10 @@ fn emit_platforms(
         .insert(Collider::cuboid(platform_width / 2., platform_height / 2.))
         .insert(SpriteBundle {
             sprite: Sprite {
-                // brownish
-                color: Color::rgb(0.5, 0.3, 0.1),
                 custom_size: Some(Vec2::new(platform_width, platform_height)),
                 ..default()
             },
+            texture: asset_server.load("textures/brick.png"),
             transform: Transform::from_translation(Vec3::new(platform_x, platform_y, 0.)),
             ..default()
         })

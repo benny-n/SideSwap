@@ -1,9 +1,9 @@
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{prelude::*, utils::HashMap, window::PrimaryWindow};
 use bevy_rapier2d::prelude::*;
 
 use crate::{
     animation::{Animation, AnimationTimer, Animations},
-    events::WallReached,
+    events::{Died, WallReached},
     physics::Platform,
     AppState, Wall,
 };
@@ -41,6 +41,7 @@ impl Plugin for PlayerPlugin {
                     change_player_animation,
                     send_wall_reached_event,
                     move_player,
+                    is_dead,
                 )
                     .in_set(OnUpdate(AppState::InGame)),
             )
@@ -112,7 +113,7 @@ fn spawn_player(
         .insert(SpriteSheetBundle {
             texture_atlas: idle.handle.clone(),
             sprite: TextureAtlasSprite::new(0),
-            transform: Transform::from_xyz(HALF_PLAYER_SIZE, HALF_PLAYER_SIZE + 10., 0.),
+            transform: Transform::from_xyz(10., HALF_PLAYER_SIZE + 250., 0.),
             ..default()
         })
         .insert(RigidBody::Dynamic)
@@ -210,10 +211,19 @@ fn move_player(
 
 fn player_input(
     keyboard_input: Res<Input<KeyCode>>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
     mut commands: Commands,
-    mut query: Query<(Entity, &mut Velocity, &mut Facing), With<Player>>,
+    mut query: Query<(Entity, &Transform, &mut Velocity, &mut Facing), With<Player>>,
 ) {
-    for (player, mut velocity, mut facing) in query.iter_mut() {
+    let Ok(window) = window_query.get_single() else {
+        return;
+    };
+    for (player, transform, mut velocity, mut facing) in query.iter_mut() {
+        // TODO: This is a hack to prevent the player from falling off the screen.
+        // It should be replaced with a proper solution.
+        if transform.translation.y >= window.height() / 2. {
+            continue;
+        }
         if keyboard_input.pressed(KeyCode::A) {
             velocity.linvel.x = -PLAYER_SPEED;
             *facing = Facing::Left;
@@ -272,6 +282,14 @@ fn change_player_animation(
                 TimerMode::Repeating,
             )),
         ));
+    }
+}
+
+fn is_dead(query: Query<&Transform, With<Player>>, mut event_writer: EventWriter<Died>) {
+    for transform in query.iter() {
+        if transform.translation.y < -100. {
+            event_writer.send(Died);
+        }
     }
 }
 

@@ -1,16 +1,19 @@
 use bevy::prelude::*;
 
+use crate::Score;
+
 use super::ButtonColors;
 
 #[derive(Component)]
-pub struct MainMenu;
+pub struct ReplayScreen;
 
-const TITLE_TEXT: &str = "SideSwap";
-const DESCRIPTION_TEXT: &str = "Side effects, literally.";
-const TUTORIAL_TEXT: &str =
-    "Use [A, D] to move.\n Press SPACE to jump.\n Get to the other side of the screen!";
+const TITLE_TEXT: &str = "YOU DIED!";
 
-pub fn spawn_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn spawn_replay_screen(
+    mut commands: Commands,
+    score: Res<Score>,
+    asset_server: Res<AssetServer>,
+) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     commands
         .spawn((
@@ -23,7 +26,7 @@ pub fn spawn_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                 background_color: BackgroundColor(Color::DARK_GRAY),
                 ..default()
             },
-            MainMenu,
+            ReplayScreen,
         ))
         .with_children(|parent| {
             parent
@@ -37,7 +40,7 @@ pub fn spawn_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     parent.spawn((TextBundle {
                         style: Style {
-                            margin: UiRect::bottom(Val::Px(32.)),
+                            margin: UiRect::vertical(Val::Px(18.)),
                             ..default()
                         },
                         text: Text {
@@ -45,7 +48,7 @@ pub fn spawn_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 TITLE_TEXT,
                                 TextStyle {
                                     font: font.clone(),
-                                    font_size: 80.0,
+                                    font_size: 140.,
                                     color: Color::CRIMSON,
                                 },
                             )],
@@ -57,36 +60,30 @@ pub fn spawn_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent.spawn((TextBundle {
                         style: Style {
                             margin: UiRect::bottom(Val::Px(8.)),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            align_self: AlignSelf::Center,
                             ..default()
                         },
                         text: Text {
-                            sections: vec![TextSection::new(
-                                DESCRIPTION_TEXT,
-                                TextStyle {
-                                    font: font.clone(),
-                                    font_size: 40.0,
-                                    color: Color::ORANGE_RED,
-                                },
-                            )],
-                            alignment: TextAlignment::Center,
-                            ..default()
-                        },
-                        ..default()
-                    },));
-                    parent.spawn((TextBundle {
-                        style: Style {
-                            justify_content: JustifyContent::FlexEnd,
-                            ..default()
-                        },
-                        text: Text {
-                            sections: vec![TextSection::new(
-                                TUTORIAL_TEXT,
-                                TextStyle {
-                                    font: font.clone(),
-                                    font_size: 24.0,
-                                    color: Color::BLACK,
-                                },
-                            )],
+                            sections: vec![
+                                TextSection::new(
+                                    "Score: ",
+                                    TextStyle {
+                                        font: font.clone(),
+                                        font_size: 40.0,
+                                        color: Color::ORANGE_RED,
+                                    },
+                                ),
+                                TextSection::new(
+                                    score.0.to_string(),
+                                    TextStyle {
+                                        font: font.clone(),
+                                        font_size: 50.0,
+                                        color: Color::RED,
+                                    },
+                                ),
+                            ],
                             alignment: TextAlignment::Center,
                             ..default()
                         },
@@ -98,7 +95,7 @@ pub fn spawn_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
                                 align_self: AlignSelf::Center,
-                                max_size: Size::new(Val::Px(250.), Val::Auto),
+                                max_size: Size::new(Val::Px(275.), Val::Auto),
                                 margin: UiRect::all(Val::Px(8.)),
                                 ..default()
                             },
@@ -107,7 +104,7 @@ pub fn spawn_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                         })
                         .with_children(|parent| {
                             parent.spawn(TextBundle::from_section(
-                                "Let's GOOOO!",
+                                "Again >:)",
                                 TextStyle {
                                     font: font.clone(),
                                     font_size: 32.0,
@@ -119,7 +116,7 @@ pub fn spawn_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-pub fn despawn_main_menu(mut commands: Commands, query: Query<Entity, With<MainMenu>>) {
+pub fn despawn_replay_screen(mut commands: Commands, query: Query<Entity, With<ReplayScreen>>) {
     for entity in query.iter() {
         commands.entity(entity).despawn_recursive();
     }

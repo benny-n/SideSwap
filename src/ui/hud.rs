@@ -1,6 +1,6 @@
 use bevy::{prelude::*, utils::Instant};
 
-use crate::events::WallReached;
+use crate::Score;
 
 const TIME_SECTION: usize = 1;
 const SCORE_SECTION: usize = 1;
@@ -17,7 +17,7 @@ const fn hud_text_style(font: Handle<Font>) -> TextStyle {
 
 const HUD_TOP_LEFT: Style = Style {
     position_type: PositionType::Absolute,
-    position: UiRect::new(Val::Px(8.), Val::Auto, Val::Px(0.), Val::Auto),
+    position: UiRect::new(Val::Px(16.), Val::Auto, Val::Px(0.), Val::Auto),
     ..Style::DEFAULT
 };
 
@@ -48,16 +48,12 @@ pub fn start_timer(mut commands: Commands) {
     commands.insert_resource(Timer(Instant::now()));
 }
 
-pub fn update_score(
-    mut wall_reached_events: EventReader<WallReached>,
-    mut query: Query<&mut Text, With<ScoreText>>,
-) {
-    let Ok(mut text) = query.get_single_mut() else {
-        return;
-    };
-    if wall_reached_events.iter().count() > 0 {
-        let score = text.sections[1].value.parse::<i32>().unwrap_or(0) + 1;
-        text.sections[SCORE_SECTION].value = score.to_string();
+pub fn update_score(score: Res<Score>, mut query: Query<&mut Text, With<ScoreText>>) {
+    if score.is_changed() {
+        let Ok(mut text) = query.get_single_mut() else {
+            return;
+        };
+        text.sections[SCORE_SECTION].value = score.0.to_string();
     }
 }
 
