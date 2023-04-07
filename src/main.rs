@@ -20,10 +20,13 @@ pub enum Wall {
 
 #[derive(Resource)]
 pub struct Score(pub usize);
+#[derive(Resource)]
+pub struct HighScore(pub usize);
 
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::rgb_u8(166, 234, 255)))
+        .insert_resource(HighScore(0))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Jam #3".into(),
@@ -36,7 +39,7 @@ fn main() {
         .add_state::<AppState>()
         .add_startup_system(spawn_camera)
         .add_system(reset_score.in_schedule(OnEnter(AppState::InGame)))
-        .add_system(exit_game.in_set(OnUpdate(AppState::InGame)))
+        .add_systems((update_highscore, exit_game).in_set(OnUpdate(AppState::InGame)))
         .add_plugin(ui::UIPlugin)
         .add_plugin(EventPlugin)
         .add_plugin(AnimatorPlugin)
@@ -57,6 +60,12 @@ fn spawn_camera(mut commands: Commands, window_query: Query<&Window, With<Primar
 
 fn reset_score(mut commands: Commands) {
     commands.insert_resource(Score(0));
+}
+
+fn update_highscore(score: Res<Score>, mut highscore: ResMut<HighScore>) {
+    if score.0 > highscore.0 {
+        highscore.0 = score.0;
+    }
 }
 
 fn exit_game(keyboard_input: Res<Input<KeyCode>>, mut state: ResMut<NextState<AppState>>) {

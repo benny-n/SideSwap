@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::Score;
+use crate::{HighScore, Score};
 
 use super::ButtonColors;
 
@@ -12,6 +12,7 @@ const TITLE_TEXT: &str = "YOU DIED!";
 pub fn spawn_replay_screen(
     mut commands: Commands,
     score: Res<Score>,
+    highscore: Res<HighScore>,
     asset_server: Res<AssetServer>,
 ) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
@@ -77,6 +78,38 @@ pub fn spawn_replay_screen(
                                 ),
                                 TextSection::new(
                                     score.0.to_string(),
+                                    TextStyle {
+                                        font: font.clone(),
+                                        font_size: 50.0,
+                                        color: Color::RED,
+                                    },
+                                ),
+                            ],
+                            alignment: TextAlignment::Center,
+                            ..default()
+                        },
+                        ..default()
+                    },));
+                    parent.spawn((TextBundle {
+                        style: Style {
+                            margin: UiRect::bottom(Val::Px(8.)),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            align_self: AlignSelf::Center,
+                            ..default()
+                        },
+                        text: Text {
+                            sections: vec![
+                                TextSection::new(
+                                    "Highest: ",
+                                    TextStyle {
+                                        font: font.clone(),
+                                        font_size: 40.0,
+                                        color: Color::ORANGE_RED,
+                                    },
+                                ),
+                                TextSection::new(
+                                    highscore.0.to_string(),
                                     TextStyle {
                                         font: font.clone(),
                                         font_size: 50.0,
