@@ -25,7 +25,7 @@ struct CustomCollisionHook;
 impl BevyPhysicsHooks for CustomCollisionHook {
     fn modify_solver_contacts(&self, context: ContactModificationContextView<'_, '_>) {
         let allowed_normal = -Vector::y();
-        context.raw.update_as_oneway_platform(&allowed_normal, 0.);
+        context.raw.update_as_oneway_platform(&allowed_normal, 0.3);
     }
 }
 
@@ -38,7 +38,7 @@ pub struct PhysicsHooksResource(Box<dyn PhysicsHooks + Send + Sync>);
 impl Plugin for PhysicsPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(spawn_obstacles.in_schedule(OnEnter(AppState::InGame)))
-            // .add_plugin(RapierDebugRenderPlugin::default())
+            .add_plugin(RapierDebugRenderPlugin::default())
             .add_plugin(RapierPhysicsPlugin::<CustomCollisionHook>::pixels_per_meter(100.0))
             .add_systems(
                 (emit_platforms, despawn_out_of_screen_platforms)
