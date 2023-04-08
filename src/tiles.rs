@@ -1,6 +1,6 @@
 use bevy::{prelude::*, utils::Instant, window::PrimaryWindow};
 use bevy_rapier2d::prelude::*;
-use rand::random;
+use rand::{random, thread_rng, Rng};
 
 use crate::{
     effects::{Effect, EffectQueue},
@@ -91,16 +91,16 @@ fn spawn_obstacles(
     commands
         .spawn(RigidBody::KinematicVelocityBased)
         .insert(Collider::cuboid(
-            PLATFORM_START_WIDTH / 2.,
-            PLATFORM_HEIGHT / 2.,
+            PLATFORM_MIN_WIDTH / 2.,
+            PLATFORM_SPRITE_SIZE / 2.,
         ))
         .insert(SpriteBundle {
             sprite: Sprite {
-                custom_size: Some(Vec2::new(PLATFORM_START_WIDTH, PLATFORM_HEIGHT)),
+                custom_size: Some(Vec2::new(PLATFORM_MIN_WIDTH, PLATFORM_SPRITE_SIZE)),
                 ..default()
             },
-            texture: asset_server.load("textures/brick.png"),
-            transform: Transform::from_xyz(10., PLATFORM_MIN_Y, 0.),
+            texture: asset_server.load("sprites/platform.png"),
+            transform: Transform::from_xyz(PLATFORM_SPRITE_SIZE * 2., PLATFORM_MIN_Y, 0.),
             ..default()
         })
         .insert(Platform)
@@ -110,8 +110,8 @@ fn spawn_obstacles(
 }
 
 const PLATFORM_START_WIDTH: f32 = 250.;
-const PLATFORM_MIN_WIDTH: f32 = 15.;
-const PLATFORM_HEIGHT: f32 = 30.;
+const PLATFORM_SPRITE_SIZE: f32 = 32.;
+const PLATFORM_MIN_WIDTH: f32 = 3. * PLATFORM_SPRITE_SIZE;
 const PLATFORM_MIN_Y: f32 = 150.;
 
 fn emit_platforms(
@@ -122,6 +122,7 @@ fn emit_platforms(
     asset_server: Res<AssetServer>,
     last_wall_query: Query<&LastWall>,
     window_query: Query<&Window, With<PrimaryWindow>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
     let Ok(window) = window_query.get_single() else {
         return;
@@ -134,12 +135,16 @@ fn emit_platforms(
     commands.insert_resource(PlatformTimer(Instant::now()));
 
     // Platforms should get smaller as the score increases
-    let platform_base_width = PLATFORM_START_WIDTH - score.0 as f32 * 20.;
-    let platform_rand_width =
-        (random::<f32>() * 0.2 * platform_base_width) + 0.8 * platform_base_width;
+    let mut rng = thread_rng();
+    let max_plat_parts = match score.0 {
+        0..=3 => 4,
+        4..=6 => 3,
+        7..=9 => 2,
+        _ => 1,
+    };
+    let plat_num = rng.gen_range(1..=max_plat_parts) as usize;
 
-    let platform_width = f32::max(PLATFORM_MIN_WIDTH, platform_rand_width);
-    let platform_height = PLATFORM_HEIGHT;
+    let platform_height = PLATFORM_SPRITE_SIZE;
     let platform_y = PLATFORM_MIN_Y + random::<f32>() * (window.height() / 15.);
     let (platform_x, velocity) = match last_wall_query.get_single() {
         Ok(LastWall(Wall::Left)) => (
@@ -157,11 +162,19 @@ fn emit_platforms(
     let is_tranparent =
         effect_q.last() == Some(&Effect::TransparentPlatforms) && random::<f32>() < 0.25;
 
-    let entity = commands
-        .spawn(RigidBody::KinematicVelocityBased)
-        .insert(SpriteBundle {
-            sprite: Sprite {
-                custom_size: Some(Vec2::new(platform_width * 0.8, platform_height)),
+    let atlas = texture_atlases.add(TextureAtlas::from_grid(
+        asset_server.load("sprites/platform.png"),
+        Vec2::new(PLATFORM_SPRITE_SIZE, PLATFORM_SPRITE_SIZE),
+        3,
+        1,
+        None,
+        None,
+    ));
+
+    let spawn_platform_sprite = |parent: &mut ChildBuilder, index: usize, x: f32| {
+        parent.spawn(SpriteSheetBundle {
+            sprite: TextureAtlasSprite {
+                index,
                 color: if is_tranparent {
                     Color::rgba(1., 1., 1., 0.5)
                 } else {
@@ -169,8 +182,31 @@ fn emit_platforms(
                 },
                 ..default()
             },
-            texture: asset_server.load("textures/brick.png"),
-            transform: Transform::from_translation(Vec3::new(platform_x, platform_y, 0.)),
+            texture_atlas: atlas.clone(),
+            transform: Transform::from_translation(Vec3::new(x, 0., -2. / score.0 as f32)),
+            ..default()
+        });
+    };
+
+    let entity = commands
+        .spawn(RigidBody::KinematicVelocityBased)
+        .insert(SpriteSheetBundle {
+            sprite: TextureAtlasSprite {
+                index: 1,
+                custom_size: Some(Vec2::new(if plat_num == 1 { 0. } else { 32. }, 32.)),
+                color: if is_tranparent {
+                    Color::rgba(1., 1., 1., 0.5)
+                } else {
+                    Color::WHITE
+                },
+                ..default()
+            },
+            texture_atlas: atlas.clone(),
+            transform: Transform::from_translation(Vec3::new(
+                platform_x,
+                platform_y,
+                -1. / score.0 as f32,
+            )),
             ..default()
         })
         .insert(Friction {
@@ -180,35 +216,34 @@ fn emit_platforms(
         .insert(Velocity::linear(velocity))
         .insert(Platform)
         .with_children(|parent| {
+            for i in 1..plat_num {
+                // spawn left side of the platform
+                spawn_platform_sprite(parent, 1, -(PLATFORM_SPRITE_SIZE * i as f32));
+                // spawn right side of the platform
+                spawn_platform_sprite(parent, 1, PLATFORM_SPRITE_SIZE * i as f32);
+            }
+            let width = if plat_num == 1 {
+                PLATFORM_SPRITE_SIZE / 2.
+            } else {
+                PLATFORM_SPRITE_SIZE
+            };
             // spawn left side of the platform
-            parent.spawn(SpriteBundle {
-                sprite: Sprite {
-                    custom_size: Some(Vec2::new(platform_width * 0.1, platform_height)),
-                    color: Color::BLUE,
-                    ..default()
-                },
-                texture: asset_server.load("textures/brick.png"),
-                transform: Transform::from_translation(Vec3::new(-platform_width * 0.4, 0., -1.)),
-                ..default()
-            });
+            spawn_platform_sprite(parent, 0, -(width * plat_num as f32));
             // spawn right side of the platform
-            parent.spawn(SpriteBundle {
-                sprite: Sprite {
-                    custom_size: Some(Vec2::new(platform_width * 0.1, platform_height)),
-                    color: Color::RED,
-                    ..default()
-                },
-                texture: asset_server.load("textures/brick.png"),
-                transform: Transform::from_translation(Vec3::new(platform_width * 0.4, 0., -1.)),
-                ..default()
-            });
+            spawn_platform_sprite(parent, 2, width * plat_num as f32);
         })
         .id();
 
     if !is_tranparent {
-        commands
-            .entity(entity)
-            .insert(Collider::cuboid(platform_width / 2., platform_height / 2.));
+        let collider_width = if plat_num == 1 {
+            PLATFORM_SPRITE_SIZE * 2.
+        } else {
+            PLATFORM_MIN_WIDTH + ((plat_num - 1) as f32) * PLATFORM_SPRITE_SIZE * 2.
+        };
+        commands.entity(entity).insert(Collider::cuboid(
+            (collider_width - PLATFORM_SPRITE_SIZE) / 2.,
+            (platform_height - 10.) / 2.,
+        ));
     }
 }
 

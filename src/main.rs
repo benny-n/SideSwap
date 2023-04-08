@@ -1,4 +1,4 @@
-#![allow(clippy::type_complexity)]
+#![allow(clippy::type_complexity, clippy::too_many_arguments)]
 
 use animation::AnimatorPlugin;
 use bevy::{prelude::*, window::PrimaryWindow};
