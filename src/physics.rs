@@ -1,5 +1,5 @@
-use bevy::{ecs::system::SystemParam, prelude::*, utils::Instant, window::PrimaryWindow};
-use bevy_rapier2d::{na::Vector, prelude::*, rapier::prelude::PhysicsHooks};
+use bevy::{prelude::*, utils::Instant, window::PrimaryWindow};
+use bevy_rapier2d::{prelude::*, rapier::prelude::PhysicsHooks};
 use rand::random;
 
 use crate::{
@@ -19,16 +19,6 @@ pub struct Platform;
 #[derive(Resource, DerefMut, Deref)]
 pub struct PlatformTimer(pub Instant);
 
-#[derive(SystemParam)]
-struct CustomCollisionHook;
-
-impl BevyPhysicsHooks for CustomCollisionHook {
-    fn modify_solver_contacts(&self, context: ContactModificationContextView<'_, '_>) {
-        let allowed_normal = -Vector::y();
-        context.raw.update_as_oneway_platform(&allowed_normal, 0.3);
-    }
-}
-
 #[derive(Component, DerefMut, Deref)]
 pub struct PlatformVelocity(pub f32);
 
@@ -38,7 +28,7 @@ pub struct PhysicsHooksResource(Box<dyn PhysicsHooks + Send + Sync>);
 impl Plugin for PhysicsPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(spawn_obstacles.in_schedule(OnEnter(AppState::InGame)))
-            .add_plugin(RapierPhysicsPlugin::<CustomCollisionHook>::pixels_per_meter(100.0))
+            .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
             .add_systems(
                 (emit_platforms, despawn_out_of_screen_platforms)
                     .in_set(OnUpdate(AppState::InGame)),
@@ -195,7 +185,6 @@ fn emit_platforms(
             combine_rule: CoefficientCombineRule::Min,
         })
         .insert(Velocity::linear(velocity))
-        .insert(ActiveHooks::MODIFY_SOLVER_CONTACTS)
         .insert(Platform)
         .id();
 

@@ -151,7 +151,6 @@ fn spawn_player(
 fn handle_player_collisions(
     wall_query: Query<&Wall>,
     plat_query: Query<&Transform, (With<Platform>, Without<Player>)>,
-    rapier_context: Res<RapierContext>,
     mut commands: Commands,
     mut character_controller_outputs: Query<
         (
@@ -181,13 +180,7 @@ fn handle_player_collisions(
             let Some(platform_transform )= plat_query.get(collided_with).ok() else {
                 continue;
             };
-            let Some(contact) = rapier_context.contact_pair(player, collided_with) else {
-                continue;
-            };
-            let Some(manifold) = contact.manifolds().next() else {
-                continue;
-            };
-            if manifold.normal() == Vec2::new(0., -1.) && joint.is_none() {
+            if joint.is_none() {
                 let joint = FixedJointBuilder::new().local_anchor2(Vec2::new(
                     (platform_transform.translation - player_transform.translation).x,
                     -HALF_PLAYER_SIZE,
@@ -266,7 +259,7 @@ fn change_player_animation(
 ) {
     for (player, velocity) in query.iter_mut() {
         let old_animation_handle = animations.active.handle.clone();
-        animations.active = if velocity.linvel.y.abs() >= 0.1 {
+        animations.active = if velocity.linvel.y.abs() >= 0.01 {
             &animations.map["jump"]
         } else if velocity.linvel.x.abs() <= 0.001 {
             &animations.map["idle"]
