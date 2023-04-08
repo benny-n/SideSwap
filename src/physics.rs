@@ -38,6 +38,7 @@ pub struct PhysicsHooksResource(Box<dyn PhysicsHooks + Send + Sync>);
 impl Plugin for PhysicsPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(spawn_obstacles.in_schedule(OnEnter(AppState::InGame)))
+            .add_plugin(RapierDebugRenderPlugin::default())
             .add_plugin(RapierPhysicsPlugin::<CustomCollisionHook>::pixels_per_meter(100.0))
             .add_systems(
                 (emit_platforms, despawn_out_of_screen_platforms)
@@ -88,7 +89,7 @@ fn spawn_obstacles(
             .for_each(|(x, wall)| {
                 commands
                     .spawn(RigidBody::Fixed)
-                    .insert(Collider::cuboid(wall_width, wall_height / 2.))
+                    .insert(Collider::cuboid(wall_width / 2., wall_height / 2.))
                     .insert(SpriteBundle {
                         sprite: Sprite {
                             // brownish
@@ -128,7 +129,7 @@ fn spawn_obstacles(
 
 const PLATFORM_START_WIDTH: f32 = 250.;
 const PLATFORM_MIN_WIDTH: f32 = 15.;
-const PLATFORM_HEIGHT: f32 = 20.;
+const PLATFORM_HEIGHT: f32 = 30.;
 const PLATFORM_MIN_Y: f32 = 150.;
 
 fn emit_platforms(

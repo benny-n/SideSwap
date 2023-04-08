@@ -8,25 +8,28 @@ use crate::{events::WallReached, AppState};
 pub enum Effect {
     ShakyCamera,
     // FastPlatforms,
-    // InverseKeyboard,
+    InverseKeyboard,
     TransparentPlatforms,
-    LowGravity,
+    HighGravity,
 }
 
 impl ToString for Effect {
     fn to_string(&self) -> String {
         match self {
-            Effect::ShakyCamera => "Shaky Camera".to_owned(),
-            Effect::TransparentPlatforms => "Transparent Platforms".to_owned(),
-            Effect::LowGravity => "Low Gravity".to_owned(),
+            Effect::ShakyCamera => "Shaky Camera",
+            Effect::TransparentPlatforms => "Transparent Platforms",
+            Effect::HighGravity => "High Gravity",
+            Effect::InverseKeyboard => "Inverse Keyboard",
         }
+        .into()
     }
 }
 
-const EFFECTS: [Effect; 3] = [
+const EFFECTS: [Effect; 4] = [
     Effect::ShakyCamera,
     Effect::TransparentPlatforms,
-    Effect::LowGravity,
+    Effect::HighGravity,
+    Effect::InverseKeyboard,
 ];
 
 #[derive(Resource, Deref, DerefMut, Debug)]
@@ -38,9 +41,9 @@ impl Plugin for EffectsPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(EffectQueue(vec![])).add_systems(
             (
-                random_effect.before(shake_camera).before(low_gravity),
+                random_effect.before(shake_camera).before(high_gravity),
                 shake_camera,
-                low_gravity,
+                high_gravity,
             )
                 .in_set(OnUpdate(AppState::InGame)),
         );
@@ -55,12 +58,11 @@ fn random_effect(mut effect_q: ResMut<EffectQueue>, mut event_reader: EventReade
             effects.shuffle(&mut rand::thread_rng());
             effect_q.0 = effects;
         }
-        info!("Effect: {:?}", effect_q);
+        // info!("Effect: {:?}", effect_q);
     }
 }
 
 fn shake_camera(
-    // mut commands: Commands,
     effect_q: Res<EffectQueue>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     mut camera_query: Query<&mut Transform, With<Camera>>,
@@ -82,14 +84,14 @@ fn shake_camera(
     }
 }
 
-fn low_gravity(effect_q: Res<EffectQueue>, mut gravity_query: Query<&mut GravityScale>) {
+fn high_gravity(effect_q: Res<EffectQueue>, mut gravity_query: Query<&mut GravityScale>) {
     if !effect_q.is_changed() {
         return;
     }
     let Ok(mut gravity) = gravity_query.get_single_mut() else {
         return;
     };
-    if let Some(Effect::LowGravity) = effect_q.last() {
+    if let Some(Effect::HighGravity) = effect_q.last() {
         gravity.0 = 10.0;
     } else {
         gravity.0 = 5.0

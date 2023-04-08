@@ -3,6 +3,7 @@ use bevy_rapier2d::prelude::*;
 
 use crate::{
     animation::{Animation, AnimationTimer, Animations},
+    effects::{Effect, EffectQueue},
     events::WallReached,
     physics::Platform,
     AppState, Wall,
@@ -129,7 +130,7 @@ fn spawn_player(
         })
         .insert(Collider::cuboid(HALF_PLAYER_SIZE / 2., HALF_PLAYER_SIZE))
         .insert(KinematicCharacterController {
-            // snap_to_ground: Some(CharacterLength::Absolute(5.0)),
+            snap_to_ground: Some(CharacterLength::Relative(0.5)),
             slide: false,
             ..default()
         })
@@ -211,6 +212,7 @@ fn move_player(
 fn player_input(
     keyboard_input: Res<Input<KeyCode>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
+    effects_q: Res<EffectQueue>,
     mut commands: Commands,
     mut query: Query<(Entity, &Transform, &mut Velocity, &mut Facing), With<Player>>,
 ) {
@@ -223,11 +225,15 @@ fn player_input(
         if transform.translation.y >= window.height() / 2. {
             continue;
         }
-        if keyboard_input.pressed(KeyCode::A) {
+        let (left, right) = match effects_q.last() {
+            Some(Effect::InverseKeyboard) => (KeyCode::D, KeyCode::A),
+            _ => (KeyCode::A, KeyCode::D),
+        };
+        if keyboard_input.pressed(left) {
             velocity.linvel.x = -PLAYER_SPEED;
             *facing = Facing::Left;
             commands.entity(player).remove::<ImpulseJoint>();
-        } else if keyboard_input.pressed(KeyCode::D) {
+        } else if keyboard_input.pressed(right) {
             velocity.linvel.x = PLAYER_SPEED;
             *facing = Facing::Right;
             commands.entity(player).remove::<ImpulseJoint>();
