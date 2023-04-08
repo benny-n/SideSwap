@@ -7,28 +7,33 @@ use crate::{events::WallReached, AppState};
 #[derive(Resource, Debug, Clone, Copy, PartialEq)]
 pub enum Effect {
     Earthquake,
-    // FastPlatforms,
+    FastPlatforms,
     InverseKeyboard,
     FallthroughPlatforms,
     HighGravity,
+    LowGravity,
 }
 
 impl ToString for Effect {
     fn to_string(&self) -> String {
         match self {
             Effect::Earthquake => "Earthquake",
+            Effect::FastPlatforms => "Fast Platforms",
             Effect::FallthroughPlatforms => "Fallthrough Platforms",
             Effect::HighGravity => "High Gravity",
+            Effect::LowGravity => "Low Gravity",
             Effect::InverseKeyboard => "Inverse Keyboard",
         }
         .into()
     }
 }
 
-const EFFECTS: [Effect; 4] = [
+const EFFECTS: [Effect; 6] = [
     Effect::Earthquake,
+    Effect::FastPlatforms,
     Effect::FallthroughPlatforms,
     Effect::HighGravity,
+    Effect::LowGravity,
     Effect::InverseKeyboard,
 ];
 
@@ -39,14 +44,13 @@ pub struct EffectsPlugin;
 
 impl Plugin for EffectsPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(EffectQueue(vec![])).add_systems(
-            (
-                random_effect.before(shake_camera).before(high_gravity),
-                shake_camera,
-                high_gravity,
-            )
-                .in_set(OnUpdate(AppState::InGame)),
-        );
+        app.insert_resource(EffectQueue(vec![]))
+            .add_system(random_effect)
+            .add_systems(
+                (shake_camera, change_gravity)
+                    .after(random_effect)
+                    .in_set(OnUpdate(AppState::InGame)),
+            );
     }
 }
 
@@ -58,7 +62,6 @@ fn random_effect(mut effect_q: ResMut<EffectQueue>, mut event_reader: EventReade
             effects.shuffle(&mut rand::thread_rng());
             effect_q.0 = effects;
         }
-        // info!("Effect: {:?}", effect_q);
     }
 }
 
@@ -84,16 +87,16 @@ fn shake_camera(
     }
 }
 
-fn high_gravity(effect_q: Res<EffectQueue>, mut gravity_query: Query<&mut GravityScale>) {
+fn change_gravity(effect_q: Res<EffectQueue>, mut gravity_query: Query<&mut GravityScale>) {
     if !effect_q.is_changed() {
         return;
     }
     let Ok(mut gravity) = gravity_query.get_single_mut() else {
         return;
     };
-    if let Some(Effect::HighGravity) = effect_q.last() {
-        gravity.0 = 10.0;
-    } else {
-        gravity.0 = 5.0
+    gravity.0 = match effect_q.last() {
+        Some(Effect::HighGravity) => 10.0,
+        Some(Effect::LowGravity) => 2.5,
+        _ => 5.0,
     }
 }

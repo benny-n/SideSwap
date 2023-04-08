@@ -15,6 +15,8 @@ pub struct Ground;
 
 #[derive(Component)]
 pub struct Platform;
+#[derive(Component)]
+pub struct FirstPlatform;
 
 #[derive(Resource, DerefMut, Deref)]
 pub struct PlatformTimer(pub Instant);
@@ -104,6 +106,7 @@ fn spawn_obstacles(
             ..default()
         })
         .insert(Platform)
+        .insert(FirstPlatform)
         .insert(Velocity::linear(Vec2::new(-10., 0.)));
 
     commands.insert_resource(PlatformTimer(Instant::now()));
@@ -127,8 +130,13 @@ fn emit_platforms(
     let Ok(window) = window_query.get_single() else {
         return;
     };
+    let (plat_velocity, delta_secs) = if let Some(Effect::FastPlatforms) = effect_q.last() {
+        (300., 0.75)
+    } else {
+        (150., 1.5)
+    };
     // Spawn a platform every second
-    if timer.elapsed().as_secs_f32() < 1.5 {
+    if timer.elapsed().as_secs_f32() < delta_secs {
         return;
     }
     // Reset timer
@@ -149,11 +157,11 @@ fn emit_platforms(
     let (platform_x, velocity) = match last_wall_query.get_single() {
         Ok(LastWall(Wall::Left)) => (
             window.width() + PLATFORM_START_WIDTH,
-            Vec2::new(-(random::<f32>() * 0. + 150.), 0.),
+            Vec2::new(-(random::<f32>() * 5. + plat_velocity), 0.),
         ),
         Ok(LastWall(Wall::Right)) => (
             -PLATFORM_START_WIDTH,
-            Vec2::new(random::<f32>() * 0. + 150., 0.),
+            Vec2::new(random::<f32>() * 5. + plat_velocity, 0.),
         ),
         Err(_) => return,
     };
