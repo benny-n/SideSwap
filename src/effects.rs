@@ -6,18 +6,18 @@ use crate::{events::WallReached, AppState};
 
 #[derive(Resource, Debug, Clone, Copy, PartialEq)]
 pub enum Effect {
-    ShakyCamera,
+    Earthquake,
     // FastPlatforms,
     InverseKeyboard,
-    TransparentPlatforms,
+    FallthroughPlatforms,
     HighGravity,
 }
 
 impl ToString for Effect {
     fn to_string(&self) -> String {
         match self {
-            Effect::ShakyCamera => "Shaky Camera",
-            Effect::TransparentPlatforms => "Transparent Platforms",
+            Effect::Earthquake => "Earthquake",
+            Effect::FallthroughPlatforms => "Fallthrough Platforms",
             Effect::HighGravity => "High Gravity",
             Effect::InverseKeyboard => "Inverse Keyboard",
         }
@@ -26,8 +26,8 @@ impl ToString for Effect {
 }
 
 const EFFECTS: [Effect; 4] = [
-    Effect::ShakyCamera,
-    Effect::TransparentPlatforms,
+    Effect::Earthquake,
+    Effect::FallthroughPlatforms,
     Effect::HighGravity,
     Effect::InverseKeyboard,
 ];
@@ -70,7 +70,7 @@ fn shake_camera(
     let (Ok(window), Ok(mut transform)) = (window_query.get_single(), camera_query.get_single_mut()) else {
         return;
     };
-    if let Some(Effect::ShakyCamera) = effect_q.last() {
+    if let Some(Effect::Earthquake) = effect_q.last() {
         let dx = 2.5 - random::<f32>() * 5.0;
         let dy = 7.5 - random::<f32>() * 15.0;
         // Do not move the camera too much, clamp the values

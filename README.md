@@ -29,6 +29,6 @@ Side effects - Touching initiates a random side effect and ends the previous one
 5. Gravity - ⏳
 6. Platform speed + ⏳
 7. Platform speed - ⏳
-8. ~~Platform crumbles when player lands on platform~~ Transparent platforms ✅
+8. ~~Platform crumbles when player lands on platform~~ Fallthrough platforms ✅
 9. Violent screen shaking when player lands on platform ⏳
 10. ~~Screen distortion~~ Camera shaking ✅ (maybe also instead 9. and not 10.?)

@@ -159,8 +159,8 @@ fn emit_platforms(
     };
 
     // Apply side effects..
-    let is_tranparent =
-        effect_q.last() == Some(&Effect::TransparentPlatforms) && random::<f32>() < 0.25;
+    let is_fallthrough =
+        effect_q.last() == Some(&Effect::FallthroughPlatforms) && random::<f32>() < 0.25;
 
     let atlas = texture_atlases.add(TextureAtlas::from_grid(
         asset_server.load("sprites/platform.png"),
@@ -175,7 +175,7 @@ fn emit_platforms(
         parent.spawn(SpriteSheetBundle {
             sprite: TextureAtlasSprite {
                 index,
-                color: if is_tranparent {
+                color: if is_fallthrough {
                     Color::rgba(1., 1., 1., 0.5)
                 } else {
                     Color::WHITE
@@ -194,7 +194,7 @@ fn emit_platforms(
             sprite: TextureAtlasSprite {
                 index: 1,
                 custom_size: Some(Vec2::new(if plat_num == 1 { 0. } else { 32. }, 32.)),
-                color: if is_tranparent {
+                color: if is_fallthrough {
                     Color::rgba(1., 1., 1., 0.5)
                 } else {
                     Color::WHITE
@@ -234,7 +234,7 @@ fn emit_platforms(
         })
         .id();
 
-    if !is_tranparent {
+    if !is_fallthrough {
         let collider_width = if plat_num == 1 {
             PLATFORM_SPRITE_SIZE * 2.
         } else {
