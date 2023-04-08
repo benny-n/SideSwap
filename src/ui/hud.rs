@@ -1,12 +1,14 @@
 use bevy::prelude::*;
 
 use crate::{
+    effects::EffectQueue,
     events::{GameTimer, MAX_TIME_TO_REACH_WALL},
     Score,
 };
 
 const TIME_SECTION: usize = 1;
 const SCORE_SECTION: usize = 1;
+const EFFECT_SECTION: usize = 2;
 const DIRECTION_SECTION: usize = 0;
 #[derive(Component)]
 pub struct Hud;
@@ -43,6 +45,17 @@ pub fn update_timer(timer: Res<GameTimer>, mut query: Query<&mut Text, With<Time
         text.sections[TIME_SECTION].style.font_size = 48.0;
     }
     text.sections[TIME_SECTION].value = format!("{:.2}", f32::max(0.0, time_left_secs));
+}
+
+pub fn update_effect(effect: Res<EffectQueue>, mut query: Query<&mut Text, With<DirectionText>>) {
+    let Ok(mut text) = query.get_single_mut() else {
+        return;
+    };
+    if effect.is_changed() {
+        if let Some(effect) = effect.0.last() {
+            text.sections[EFFECT_SECTION].value = effect.to_string();
+        }
+    }
 }
 
 pub fn update_score(score: Res<Score>, mut query: Query<&mut Text, With<ScoreText>>) {
@@ -112,7 +125,18 @@ pub fn spawn_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..default()
                     },
                     text: Text {
-                        sections: vec![TextSection::new(">>>", hud_text_style(font.clone()))],
+                        sections: vec![
+                            TextSection::new(">>>", hud_text_style(font.clone())),
+                            TextSection::new("\n", hud_text_style(font.clone())),
+                            TextSection::new(
+                                "",
+                                TextStyle {
+                                    font: font.clone(),
+                                    font_size: 18.0,
+                                    color: Color::BLACK,
+                                },
+                            ),
+                        ],
                         ..default()
                     },
                     ..default()

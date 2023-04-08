@@ -129,7 +129,7 @@ fn spawn_player(
         })
         .insert(Collider::cuboid(HALF_PLAYER_SIZE / 2., HALF_PLAYER_SIZE))
         .insert(KinematicCharacterController {
-            // snap_to_ground: Some(CharacterLength::Absolute(1.0)),
+            // snap_to_ground: Some(CharacterLength::Absolute(5.0)),
             slide: false,
             ..default()
         })

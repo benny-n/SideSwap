@@ -2,7 +2,11 @@ use bevy::{ecs::system::SystemParam, prelude::*, utils::Instant, window::Primary
 use bevy_rapier2d::{na::Vector, prelude::*, rapier::prelude::PhysicsHooks};
 use rand::random;
 
-use crate::{player::LastWall, AppState, Score, Wall};
+use crate::{
+    effects::{Effect, EffectQueue},
+    player::LastWall,
+    AppState, Score, Wall,
+};
 
 pub struct PhysicsPlugin;
 
@@ -78,25 +82,27 @@ fn spawn_obstacles(
         .insert(Ground);
 
     // Walls
-    [(-10., Wall::Left), (10. + window.width(), Wall::Right)]
-        .into_iter()
-        .for_each(|(x, wall)| {
-            commands
-                .spawn(RigidBody::Fixed)
-                .insert(Collider::cuboid(wall_width, wall_height / 2.))
-                .insert(SpriteBundle {
-                    sprite: Sprite {
-                        // brownish
-                        color: Color::rgb(0.5, 0.3, 0.1),
-                        custom_size: Some(Vec2::new(wall_width, wall_height)),
+    [0., wall_height].into_iter().for_each(|y| {
+        [(-10., Wall::Left), (10. + window.width(), Wall::Right)]
+            .into_iter()
+            .for_each(|(x, wall)| {
+                commands
+                    .spawn(RigidBody::Fixed)
+                    .insert(Collider::cuboid(wall_width, wall_height / 2.))
+                    .insert(SpriteBundle {
+                        sprite: Sprite {
+                            // brownish
+                            color: Color::rgb(0.5, 0.3, 0.1),
+                            custom_size: Some(Vec2::new(wall_width, wall_height)),
+                            ..default()
+                        },
+                        texture: asset_server.load("textures/brick.png"),
+                        transform: Transform::from_xyz(x, y + wall_height / 2., 0.),
                         ..default()
-                    },
-                    texture: asset_server.load("textures/brick.png"),
-                    transform: Transform::from_xyz(x, wall_height / 2., 0.),
-                    ..default()
-                })
-                .insert(wall);
-        });
+                    })
+                    .insert(wall);
+            })
+    });
 
     // Starting platform
     commands
@@ -129,6 +135,7 @@ fn emit_platforms(
     mut commands: Commands,
     timer: Res<PlatformTimer>,
     score: Res<Score>,
+    effect_q: Res<EffectQueue>,
     asset_server: Res<AssetServer>,
     last_wall_query: Query<&LastWall>,
     window_query: Query<&Window, With<PrimaryWindow>>,
@@ -163,12 +170,20 @@ fn emit_platforms(
         Err(_) => return,
     };
 
-    commands
+    // Apply side effects..
+    let is_tranparent =
+        effect_q.last() == Some(&Effect::TransparentPlatforms) && random::<f32>() < 0.25;
+
+    let entity = commands
         .spawn(RigidBody::KinematicVelocityBased)
-        .insert(Collider::cuboid(platform_width / 2., platform_height / 2.))
         .insert(SpriteBundle {
             sprite: Sprite {
                 custom_size: Some(Vec2::new(platform_width, platform_height)),
+                color: if is_tranparent {
+                    Color::rgba(1., 1., 1., 0.5)
+                } else {
+                    Color::WHITE
+                },
                 ..default()
             },
             texture: asset_server.load("textures/brick.png"),
@@ -181,7 +196,14 @@ fn emit_platforms(
         })
         .insert(Velocity::linear(velocity))
         .insert(ActiveHooks::MODIFY_SOLVER_CONTACTS)
-        .insert(Platform);
+        .insert(Platform)
+        .id();
+
+    if !is_tranparent {
+        commands
+            .entity(entity)
+            .insert(Collider::cuboid(platform_width / 2., platform_height / 2.));
+    }
 }
 
 fn despawn_out_of_screen_platforms(

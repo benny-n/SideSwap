@@ -2,11 +2,14 @@
 
 use animation::AnimatorPlugin;
 use bevy::{prelude::*, window::PrimaryWindow};
+use effects::EffectsPlugin;
 use events::EventPlugin;
 use physics::PhysicsPlugin;
 use player::PlayerPlugin;
+use ui::UIPlugin;
 
 mod animation;
+mod effects;
 mod events;
 pub mod physics;
 mod player;
@@ -40,7 +43,8 @@ fn main() {
         .add_startup_system(spawn_camera)
         .add_system(reset_score.in_schedule(OnEnter(AppState::InGame)))
         .add_systems((update_highscore, exit_game).in_set(OnUpdate(AppState::InGame)))
-        .add_plugin(ui::UIPlugin)
+        .add_plugin(UIPlugin)
+        .add_plugin(EffectsPlugin)
         .add_plugin(EventPlugin)
         .add_plugin(AnimatorPlugin)
         .add_plugin(PhysicsPlugin)
