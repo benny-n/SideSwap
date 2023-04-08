@@ -5,7 +5,7 @@ use crate::{
     animation::{Animation, AnimationTimer, Animations},
     effects::{Effect, EffectQueue},
     events::WallReached,
-    physics::Platform,
+    tiles::Platform,
     AppState, Wall,
 };
 
@@ -118,7 +118,6 @@ fn spawn_player(
         })
         .insert(RigidBody::Dynamic)
         .insert(LockedAxes::ROTATION_LOCKED)
-        // .insert(ActiveHooks::MODIFY_SOLVER_CONTACTS)
         .insert(GravityScale(5.))
         .insert(Velocity {
             linvel: Vec2::new(0., 0.),
@@ -136,7 +135,6 @@ fn spawn_player(
         })
         .insert(Ccd::enabled())
         .insert(ActiveEvents::COLLISION_EVENTS)
-        // .insert(ColliderMassProperties::Mass(1.0))
         .insert(AnimationTimer(Timer::from_seconds(
             1. / idle.fps as f32,
             TimerMode::Repeating,

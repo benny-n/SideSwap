@@ -1,5 +1,5 @@
 use bevy::{prelude::*, utils::Instant, window::PrimaryWindow};
-use bevy_rapier2d::{prelude::*, rapier::prelude::PhysicsHooks};
+use bevy_rapier2d::prelude::*;
 use rand::random;
 
 use crate::{
@@ -8,7 +8,7 @@ use crate::{
     AppState, Score, Wall,
 };
 
-pub struct PhysicsPlugin;
+pub struct TilesPlugin;
 
 #[derive(Component)]
 pub struct Ground;
@@ -19,16 +19,9 @@ pub struct Platform;
 #[derive(Resource, DerefMut, Deref)]
 pub struct PlatformTimer(pub Instant);
 
-#[derive(Component, DerefMut, Deref)]
-pub struct PlatformVelocity(pub f32);
-
-#[derive(Resource)]
-pub struct PhysicsHooksResource(Box<dyn PhysicsHooks + Send + Sync>);
-
-impl Plugin for PhysicsPlugin {
+impl Plugin for TilesPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(spawn_obstacles.in_schedule(OnEnter(AppState::InGame)))
-            .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
             .add_systems(
                 (emit_platforms, despawn_out_of_screen_platforms)
                     .in_set(OnUpdate(AppState::InGame)),
@@ -168,7 +161,7 @@ fn emit_platforms(
         .spawn(RigidBody::KinematicVelocityBased)
         .insert(SpriteBundle {
             sprite: Sprite {
-                custom_size: Some(Vec2::new(platform_width, platform_height)),
+                custom_size: Some(Vec2::new(platform_width * 0.8, platform_height)),
                 color: if is_tranparent {
                     Color::rgba(1., 1., 1., 0.5)
                 } else {
@@ -186,6 +179,30 @@ fn emit_platforms(
         })
         .insert(Velocity::linear(velocity))
         .insert(Platform)
+        .with_children(|parent| {
+            // spawn left side of the platform
+            parent.spawn(SpriteBundle {
+                sprite: Sprite {
+                    custom_size: Some(Vec2::new(platform_width * 0.1, platform_height)),
+                    color: Color::BLUE,
+                    ..default()
+                },
+                texture: asset_server.load("textures/brick.png"),
+                transform: Transform::from_translation(Vec3::new(-platform_width * 0.4, 0., -1.)),
+                ..default()
+            });
+            // spawn right side of the platform
+            parent.spawn(SpriteBundle {
+                sprite: Sprite {
+                    custom_size: Some(Vec2::new(platform_width * 0.1, platform_height)),
+                    color: Color::RED,
+                    ..default()
+                },
+                texture: asset_server.load("textures/brick.png"),
+                transform: Transform::from_translation(Vec3::new(platform_width * 0.4, 0., -1.)),
+                ..default()
+            });
+        })
         .id();
 
     if !is_tranparent {
