@@ -1,5 +1,5 @@
 use bevy::{prelude::*, window::PrimaryWindow};
-use bevy_rapier2d::prelude::GravityScale;
+use bevy_rapier2d::prelude::*;
 use rand::{random, seq::SliceRandom};
 
 use crate::{events::WallReached, AppState};
@@ -13,24 +13,24 @@ pub enum Effect {
     HighGravity,
     LowGravity,
     Darkness,
+    IcyPlatforms,
 }
 
 impl ToString for Effect {
     fn to_string(&self) -> String {
-        match self {
-            Effect::Earthquake => "Earthquake",
-            Effect::FastPlatforms => "Fast Platforms",
-            Effect::FallthroughPlatforms => "Fallthrough Platforms",
-            Effect::HighGravity => "High Gravity",
-            Effect::LowGravity => "Low Gravity",
-            Effect::InverseKeyboard => "Inverse Keyboard",
-            Effect::Darkness => "Darkness",
-        }
-        .into()
+        format!("{:?}", self)
+            .chars()
+            .fold(String::new(), |mut acc, c| {
+                if !acc.is_empty() && c.is_uppercase() {
+                    acc.push(' ');
+                }
+                acc.push(c);
+                acc
+            })
     }
 }
 
-const EFFECTS: [Effect; 7] = [
+const EFFECTS: &[Effect] = &[
     Effect::Earthquake,
     Effect::FastPlatforms,
     Effect::FallthroughPlatforms,
@@ -38,6 +38,7 @@ const EFFECTS: [Effect; 7] = [
     Effect::LowGravity,
     Effect::InverseKeyboard,
     Effect::Darkness,
+    Effect::IcyPlatforms,
 ];
 
 #[derive(Resource, Deref, DerefMut, Debug)]

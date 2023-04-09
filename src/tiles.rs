@@ -25,7 +25,11 @@ impl Plugin for TilesPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(spawn_obstacles.in_schedule(OnEnter(AppState::InGame)))
             .add_systems(
-                (emit_platforms, despawn_out_of_screen_platforms)
+                (
+                    emit_platforms,
+                    apply_icy_platforms,
+                    despawn_out_of_screen_platforms.after(apply_icy_platforms),
+                )
                     .in_set(OnUpdate(AppState::InGame)),
             )
             .add_systems(
@@ -50,7 +54,7 @@ fn spawn_obstacles(
 
     let ground_width = window.width();
     let ground_height = 150.;
-    let wall_width = 50.;
+    let wall_width = 250.;
     let wall_height = window.height();
 
     // Ground
@@ -68,7 +72,7 @@ fn spawn_obstacles(
 
     // Walls
     [0., wall_height].into_iter().for_each(|y| {
-        [(-10., Wall::Left), (10. + window.width(), Wall::Right)]
+        [(-110., Wall::Left), (110. + window.width(), Wall::Right)]
             .into_iter()
             .for_each(|(x, wall)| {
                 commands
@@ -85,6 +89,7 @@ fn spawn_obstacles(
                         transform: Transform::from_xyz(x, y + wall_height / 2., 500.),
                         ..default()
                     })
+                    .insert(ColliderMassProperties::Density(f32::INFINITY))
                     .insert(wall);
             })
     });
@@ -170,6 +175,14 @@ fn emit_platforms(
     let is_fallthrough =
         effect_q.last() == Some(&Effect::FallthroughPlatforms) && random::<f32>() < 0.25;
 
+    let color = if is_fallthrough {
+        Color::rgba(1., 1., 1., 0.5)
+    } else if effect_q.last() == Some(&Effect::IcyPlatforms) {
+        Color::rgb(0., 0.2, 0.9)
+    } else {
+        Color::WHITE
+    };
+
     let atlas = texture_atlases.add(TextureAtlas::from_grid(
         asset_server.load("sprites/platform.png"),
         Vec2::new(PLATFORM_SPRITE_SIZE, PLATFORM_SPRITE_SIZE),
@@ -180,20 +193,19 @@ fn emit_platforms(
     ));
 
     let spawn_platform_sprite = |parent: &mut ChildBuilder, index: usize, x: f32| {
-        parent.spawn(SpriteSheetBundle {
-            sprite: TextureAtlasSprite {
-                index,
-                color: if is_fallthrough {
-                    Color::rgba(1., 1., 1., 0.5)
-                } else {
-                    Color::WHITE
+        parent.spawn((
+            SpriteSheetBundle {
+                sprite: TextureAtlasSprite {
+                    index,
+                    color,
+                    ..default()
                 },
+                texture_atlas: atlas.clone(),
+                transform: Transform::from_translation(Vec3::new(x, 0., 1.)),
                 ..default()
             },
-            texture_atlas: atlas.clone(),
-            transform: Transform::from_translation(Vec3::new(x, 0., 1. + score.0 as f32)),
-            ..default()
-        });
+            Platform,
+        ));
     };
 
     let entity = commands
@@ -202,18 +214,14 @@ fn emit_platforms(
             sprite: TextureAtlasSprite {
                 index: 1,
                 custom_size: Some(Vec2::new(if plat_num == 1 { 0. } else { 32. }, 32.)),
-                color: if is_fallthrough {
-                    Color::rgba(1., 1., 1., 0.5)
-                } else {
-                    Color::WHITE
-                },
+                color,
                 ..default()
             },
             texture_atlas: atlas.clone(),
             transform: Transform::from_translation(Vec3::new(
                 platform_x,
                 platform_y,
-                1. + score.0 as f32,
+                1. + 1.5 * score.0 as f32,
             )),
             ..default()
         })
@@ -249,9 +257,12 @@ fn emit_platforms(
             PLATFORM_MIN_WIDTH + ((plat_num - 1) as f32) * PLATFORM_SPRITE_SIZE * 2.
         };
         commands.entity(entity).insert(Collider::cuboid(
-            (collider_width - PLATFORM_SPRITE_SIZE) / 2.,
-            (platform_height - 10.) / 2.,
+            (collider_width - PLATFORM_SPRITE_SIZE * 1.2) / 2.,
+            (platform_height - 15.) / 2.,
         ));
+    }
+    if effect_q.last() == Some(&Effect::IcyPlatforms) {
+        commands.entity(entity).insert(Icy);
     }
 }
 
@@ -266,6 +277,45 @@ fn despawn_out_of_screen_platforms(
     for (entity, transform) in query.iter() {
         if transform.translation.x < -500. || transform.translation.x > window.width() + 500. {
             commands.entity(entity).despawn_recursive();
+        }
+    }
+}
+
+#[derive(Component)]
+#[component(storage = "SparseSet")]
+pub struct Icy;
+
+fn apply_icy_platforms(
+    effect_q: Res<EffectQueue>,
+    mut commands: Commands,
+    mut platform_query: Query<
+        (Entity, Option<&mut Sprite>, Option<&mut TextureAtlasSprite>),
+        With<Platform>,
+    >,
+) {
+    if !effect_q.is_changed() {
+        return;
+    }
+    let color = if let Some(Effect::IcyPlatforms) = effect_q.last() {
+        Color::rgb(0.0, 0.2, 0.9)
+    } else {
+        Color::WHITE
+    };
+    for (entity, mut sprite, mut atlas_sprite) in platform_query.iter_mut() {
+        if let Some(sprite) = sprite.as_mut() {
+            if sprite.color.a() == 1. {
+                sprite.color = color;
+            }
+        }
+        if let Some(atlas_sprite) = atlas_sprite.as_mut() {
+            if atlas_sprite.color.a() == 1. {
+                atlas_sprite.color = color;
+            }
+        }
+        if color == Color::WHITE {
+            commands.entity(entity).remove::<Icy>();
+        } else {
+            commands.entity(entity).insert(Icy);
         }
     }
 }
