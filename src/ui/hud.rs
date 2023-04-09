@@ -18,8 +18,8 @@ pub struct DirectionText;
 const fn hud_text_style(font: Handle<Font>) -> TextStyle {
     TextStyle {
         font,
-        font_size: 48.0,
-        color: Color::CRIMSON,
+        font_size: 36.0,
+        color: Color::GOLD,
     }
 }
 
@@ -40,9 +40,9 @@ pub fn update_timer(timer: Res<GameTimer>, mut query: Query<&mut Text, With<Time
     let time_left_secs = MAX_TIME_TO_REACH_WALL - elapsed;
     if time_left_secs < 6.0 {
         text.sections[TIME_SECTION].style.font_size =
-            48.0 + f32::min(20., 24. - 4. * time_left_secs.floor());
+            36.0 + f32::min(20., 24. - 4. * time_left_secs.floor());
     } else {
-        text.sections[TIME_SECTION].style.font_size = 48.0;
+        text.sections[TIME_SECTION].style.font_size = 36.0;
     }
     text.sections[TIME_SECTION].value = format!("{:.2}", f32::max(0.0, time_left_secs));
 }
@@ -94,7 +94,6 @@ pub fn spawn_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                     flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::SpaceBetween,
                     size: Size::new(Val::Percent(100.), Val::Auto),
-                    // align_content: AlignContent::SpaceBetween,
                     ..default()
                 },
                 ..default()
@@ -127,6 +126,7 @@ pub fn spawn_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextBundle {
                     style: Style {
                         margin: UiRect::horizontal(Val::Px(16.)),
+                        justify_content: JustifyContent::Center,
                         ..default()
                     },
                     text: Text {
@@ -137,7 +137,7 @@ pub fn spawn_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 "",
                                 TextStyle {
                                     font: font.clone(),
-                                    font_size: 18.0,
+                                    font_size: 12.0,
                                     color: Color::BLACK,
                                 },
                             ),

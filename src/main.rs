@@ -34,7 +34,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Jam #3".into(),
-                resolution: (800., 600.).into(),
+                resolution: (640., 360.).into(),
                 canvas: Some("#bevy".into()),
                 ..default()
             }),
