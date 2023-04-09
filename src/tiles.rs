@@ -26,6 +26,7 @@ impl Plugin for TilesPlugin {
         app.add_system(spawn_obstacles.in_schedule(OnEnter(AppState::InGame)))
             .add_systems(
                 (
+                    highlight_target_wall,
                     emit_platforms,
                     apply_icy_platforms,
                     despawn_out_of_screen_platforms.after(apply_icy_platforms),
@@ -80,8 +81,6 @@ fn spawn_obstacles(
                     .insert(Collider::cuboid(wall_width / 2., wall_height / 2.))
                     .insert(SpriteBundle {
                         sprite: Sprite {
-                            // brownish
-                            color: Color::rgb(0.5, 0.3, 0.1),
                             custom_size: Some(Vec2::new(wall_width, wall_height)),
                             ..default()
                         },
@@ -277,6 +276,25 @@ fn despawn_out_of_screen_platforms(
     for (entity, transform) in query.iter() {
         if transform.translation.x < -500. || transform.translation.x > window.width() + 500. {
             commands.entity(entity).despawn_recursive();
+        }
+    }
+}
+
+fn highlight_target_wall(
+    mut wall_query: Query<(&Wall, &mut Sprite), With<Wall>>,
+    last_wall_query: Query<(&LastWall, Changed<LastWall>)>,
+) {
+    let Ok((last_wall, last_wall_changed)) = last_wall_query.get_single() else {
+      return;
+    };
+    if !last_wall_changed {
+        return;
+    }
+    for (wall, mut sprite) in wall_query.iter_mut() {
+        if wall == &last_wall.0 {
+            sprite.color = Color::WHITE;
+        } else {
+            sprite.color = Color::rgb(1., 0.2, 0.0);
         }
     }
 }

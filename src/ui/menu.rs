@@ -8,7 +8,7 @@ pub struct MainMenu;
 const TITLE_TEXT: &str = "SideSwap";
 const DESCRIPTION_TEXT: &str = "Side effects, literally.";
 const TUTORIAL_TEXT: &str =
-    "Use [A, D] to move.\n Press SPACE to jump.\n Get to the other side of the screen!";
+    "Use [A, D] to move.\n Press SPACE to jump.\n Get to the wall highlighted in red!";
 
 pub fn spawn_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
