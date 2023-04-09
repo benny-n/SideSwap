@@ -11,9 +11,6 @@ use crate::{
 pub struct TilesPlugin;
 
 #[derive(Component)]
-pub struct Ground;
-
-#[derive(Component)]
 pub struct Platform;
 #[derive(Component)]
 pub struct FirstPlatform;
@@ -34,11 +31,7 @@ impl Plugin for TilesPlugin {
                     .in_set(OnUpdate(AppState::InGame)),
             )
             .add_systems(
-                (
-                    despawn_obstacles::<Wall>,
-                    despawn_obstacles::<Ground>,
-                    despawn_obstacles::<Platform>,
-                )
+                (despawn_obstacles::<Wall>, despawn_obstacles::<Platform>)
                     .in_schedule(OnExit(AppState::InGame)),
             );
     }
@@ -53,23 +46,19 @@ fn spawn_obstacles(
         return;
     };
 
-    let ground_width = window.width();
-    let ground_height = 150.;
     let wall_width = 250.;
     let wall_height = window.height();
 
-    // Ground
-    commands
-        .spawn(SpriteBundle {
-            sprite: Sprite {
-                custom_size: Some(Vec2::new(ground_width, ground_height)),
-                ..default()
-            },
-            texture: asset_server.load("textures/lava.png"),
-            transform: Transform::from_translation(Vec3::new(ground_width / 2., -20., 500.)),
+    // Background
+    commands.spawn(SpriteBundle {
+        sprite: Sprite {
+            custom_size: Some(Vec2::new(window.width(), window.height())),
             ..default()
-        })
-        .insert(Ground);
+        },
+        texture: asset_server.load("textures/BG.png"),
+        transform: Transform::from_xyz(window.width() / 2., window.height() / 2., 0.),
+        ..default()
+    });
 
     // Walls
     [0., wall_height].into_iter().for_each(|y| {
@@ -135,9 +124,9 @@ fn emit_platforms(
         return;
     };
     let (plat_velocity, delta_secs) = if let Some(Effect::FastPlatforms) = effect_q.last() {
-        (300., 0.75)
+        (250., 0.75)
     } else {
-        (150., 1.5)
+        (125., 1.5)
     };
     // Spawn a platform every second
     if timer.elapsed().as_secs_f32() < delta_secs {
@@ -149,9 +138,9 @@ fn emit_platforms(
     // Platforms should get smaller as the score increases
     let mut rng = thread_rng();
     let max_plat_parts = match score.0 {
-        0..=3 => 4,
-        4..=6 => 3,
-        7..=9 => 2,
+        0..=5 => 4,
+        6..=9 => 3,
+        10..=15 => 2,
         _ => 1,
     };
     let plat_num = rng.gen_range(1..=max_plat_parts) as usize;

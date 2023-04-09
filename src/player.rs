@@ -9,9 +9,9 @@ use crate::{
     AppState, Wall,
 };
 
-const PLAYER_SPEED: f32 = 150.;
-const JUMP_VELOCITY: f32 = 200.;
-const PLAYER_SIZE: f32 = 150.;
+const PLAYER_SPEED: f32 = 125.;
+const JUMP_VELOCITY: f32 = 150.;
+const PLAYER_SIZE: f32 = 32.;
 const HALF_PLAYER_SIZE: f32 = PLAYER_SIZE / 2.;
 
 #[derive(Component)]
@@ -62,15 +62,15 @@ fn spawn_player(
             Animation {
                 handle: texture_atlases.add(TextureAtlas::from_grid(
                     asset_server.load("sprites/idle.png"),
-                    Vec2::new(100.0, 150.0),
-                    12,
+                    Vec2::new(PLAYER_SIZE, PLAYER_SIZE),
+                    2,
                     1,
                     None,
                     None,
                 )),
-                last: 11,
+                last: 2,
                 curr: 0,
-                fps: 12,
+                fps: 6,
             },
         ),
         (
@@ -78,15 +78,15 @@ fn spawn_player(
             Animation {
                 handle: texture_atlases.add(TextureAtlas::from_grid(
                     asset_server.load("sprites/run.png"),
-                    Vec2::new(150.0, 150.0),
+                    Vec2::new(PLAYER_SIZE, PLAYER_SIZE),
                     18,
                     1,
                     None,
                     None,
                 )),
-                last: 17,
+                last: 2,
                 curr: 0,
-                fps: 24,
+                fps: 12,
             },
         ),
         (
@@ -94,7 +94,7 @@ fn spawn_player(
             Animation {
                 handle: texture_atlases.add(TextureAtlas::from_grid(
                     asset_server.load("sprites/jump.png"),
-                    Vec2::new(150.0, 150.0),
+                    Vec2::new(PLAYER_SIZE, PLAYER_SIZE),
                     1,
                     1,
                     None,
@@ -129,10 +129,7 @@ fn spawn_player(
             coefficient: 0.,
             combine_rule: CoefficientCombineRule::Min,
         })
-        .insert(Collider::cuboid(
-            (HALF_PLAYER_SIZE / 2.) - 15.,
-            HALF_PLAYER_SIZE,
-        ))
+        .insert(Collider::cuboid(HALF_PLAYER_SIZE / 2., HALF_PLAYER_SIZE))
         .insert(KinematicCharacterController {
             slide: false,
             ..default()
@@ -237,7 +234,6 @@ fn confine_player_in_screen(
     };
     for (player, mut transform, mut velocity) in query.iter_mut() {
         if transform.translation.x > window.width() || transform.translation.x < 0. {
-            info!("confine player");
             velocity.linvel = Vec2::ZERO;
             transform.translation.x = transform.translation.x.clamp(0., window.width());
             commands.entity(player).remove::<ImpulseJoint>();
@@ -267,7 +263,7 @@ fn player_input(
     for (player, transform, mut velocity, mut facing) in query.iter_mut() {
         // TODO: This is a hack to prevent the player from falling off the screen.
         // It should be replaced with a proper solution.
-        if transform.translation.y >= window.height() / 2. {
+        if transform.translation.y >= window.height() * 0.75 {
             continue;
         }
         let (left, right) = match effects_q.last() {

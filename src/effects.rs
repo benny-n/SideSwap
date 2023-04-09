@@ -93,23 +93,17 @@ fn play_sound_effect(
 
 fn shake_camera(
     effect_q: Res<EffectQueue>,
-    window_query: Query<&Window, With<PrimaryWindow>>,
-    mut camera_query: Query<&mut Transform, With<Camera>>,
+    mut camera_query: Query<&mut OrthographicProjection, With<Camera>>,
 ) {
-    let (Ok(window), Ok(mut transform)) = (window_query.get_single(), camera_query.get_single_mut()) else {
+    let Ok(mut ortho) = camera_query.get_single_mut() else {
         return;
     };
     if let Some(Effect::Earthquake) = effect_q.last() {
-        let dx = 2.5 - random::<f32>() * 5.0;
-        let dy = 7.5 - random::<f32>() * 15.0;
-        // Do not move the camera too much, clamp the values
-        let x = window.width() / 2.;
-        let y = window.height() / 2.;
-        transform.translation.x = f32::clamp(transform.translation.x + dx, x - 3., x + 3.);
-        transform.translation.y = f32::clamp(transform.translation.y + dy, y - 20., y + 20.);
+        let dz = 0.025 - random::<f32>() * 0.05;
+        // Do not move the camera too much, clamp the value
+        ortho.scale = f32::clamp(ortho.scale - dz, 0.975, 1.);
     } else {
-        transform.translation.x = window.width() / 2.;
-        transform.translation.y = window.height() / 2.;
+        ortho.scale = 1.;
     }
 }
 
@@ -145,7 +139,7 @@ fn apply_darkness(
         commands.spawn((
             SpriteBundle {
                 sprite: Sprite {
-                    color: Color::rgba(0.0, 0.0, 0.0, 0.99),
+                    color: Color::rgba(0.0, 0.0, 0.0, 0.975),
                     custom_size: Some(Vec2::new(window.width() * 2., window.height() * 2.)),
                     ..default()
                 },

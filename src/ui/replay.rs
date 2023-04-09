@@ -55,7 +55,7 @@ pub fn spawn_replay_screen(
                                 title,
                                 TextStyle {
                                     font: font.clone(),
-                                    font_size: 140.,
+                                    font_size: 110.,
                                     color: Color::CRIMSON,
                                 },
                             )],
@@ -78,7 +78,7 @@ pub fn spawn_replay_screen(
                                     "Score: ",
                                     TextStyle {
                                         font: font.clone(),
-                                        font_size: 40.0,
+                                        font_size: 30.0,
                                         color: Color::ORANGE_RED,
                                     },
                                 ),
@@ -86,7 +86,7 @@ pub fn spawn_replay_screen(
                                     score.0.to_string(),
                                     TextStyle {
                                         font: font.clone(),
-                                        font_size: 50.0,
+                                        font_size: 40.0,
                                         color: Color::RED,
                                     },
                                 ),
@@ -110,7 +110,7 @@ pub fn spawn_replay_screen(
                                     "Highest: ",
                                     TextStyle {
                                         font: font.clone(),
-                                        font_size: 40.0,
+                                        font_size: 30.0,
                                         color: Color::ORANGE_RED,
                                     },
                                 ),
@@ -118,7 +118,7 @@ pub fn spawn_replay_screen(
                                     highscore.0.to_string(),
                                     TextStyle {
                                         font: font.clone(),
-                                        font_size: 50.0,
+                                        font_size: 40.0,
                                         color: Color::RED,
                                     },
                                 ),
