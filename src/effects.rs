@@ -45,7 +45,7 @@ pub struct EffectsPlugin;
 impl Plugin for EffectsPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(EffectQueue(vec![]))
-            .add_system(random_effect)
+            .add_systems((random_effect, play_sound_effect).chain())
             .add_systems(
                 (shake_camera, change_gravity)
                     .after(random_effect)
@@ -62,6 +62,23 @@ fn random_effect(mut effect_q: ResMut<EffectQueue>, mut event_reader: EventReade
             effects.shuffle(&mut rand::thread_rng());
             effect_q.0 = effects;
         }
+    }
+}
+
+fn play_sound_effect(
+    effect_q: Res<EffectQueue>,
+    asset_server: Res<AssetServer>,
+    audio: Res<Audio>,
+) {
+    if effect_q.is_changed() {
+        let Some(effect) = effect_q.last() else {
+            return;
+        };
+        let sound_effect = asset_server.load(format!(
+            "sounds/{}.wav",
+            effect.to_string().replace(' ', "")
+        ));
+        audio.play(sound_effect);
     }
 }
 
