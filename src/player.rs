@@ -113,7 +113,7 @@ fn spawn_player(
         .insert(SpriteSheetBundle {
             texture_atlas: idle.handle.clone(),
             sprite: TextureAtlasSprite::new(0),
-            transform: Transform::from_xyz(10., HALF_PLAYER_SIZE + 250., 0.),
+            transform: Transform::from_xyz(10., HALF_PLAYER_SIZE + 250., 499.),
             ..default()
         })
         .insert(RigidBody::Dynamic)
@@ -204,21 +204,12 @@ fn player_input(
     window_query: Query<&Window, With<PrimaryWindow>>,
     effects_q: Res<EffectQueue>,
     mut commands: Commands,
-    mut query: Query<
-        (
-            Entity,
-            &Transform,
-            &mut Velocity,
-            &mut Facing,
-            Option<&ImpulseJoint>,
-        ),
-        With<Player>,
-    >,
+    mut query: Query<(Entity, &Transform, &mut Velocity, &mut Facing), With<Player>>,
 ) {
     let Ok(window) = window_query.get_single() else {
         return;
     };
-    for (player, transform, mut velocity, mut facing, joint) in query.iter_mut() {
+    for (player, transform, mut velocity, mut facing) in query.iter_mut() {
         // TODO: This is a hack to prevent the player from falling off the screen.
         // It should be replaced with a proper solution.
         if transform.translation.y >= window.height() / 2. {
@@ -231,16 +222,11 @@ fn player_input(
         if keyboard_input.pressed(left) {
             velocity.linvel.x = -PLAYER_SPEED;
             *facing = Facing::Left;
-            if joint.is_some() {
-                commands.entity(player).remove::<ImpulseJoint>();
-            }
+            commands.entity(player).remove::<ImpulseJoint>();
         } else if keyboard_input.pressed(right) {
             velocity.linvel.x = PLAYER_SPEED;
             *facing = Facing::Right;
             commands.entity(player).remove::<ImpulseJoint>();
-            if joint.is_some() {
-                commands.entity(player).remove::<ImpulseJoint>();
-            }
         }
         if keyboard_input.pressed(KeyCode::Space) && velocity.linvel.y.abs() <= 0.001 {
             velocity.linvel.y += JUMP_VELOCITY;

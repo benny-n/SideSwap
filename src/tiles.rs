@@ -61,7 +61,7 @@ fn spawn_obstacles(
                 ..default()
             },
             texture: asset_server.load("textures/lava.png"),
-            transform: Transform::from_translation(Vec3::new(ground_width / 2., -20., 0.)),
+            transform: Transform::from_translation(Vec3::new(ground_width / 2., -20., 500.)),
             ..default()
         })
         .insert(Ground);
@@ -82,7 +82,7 @@ fn spawn_obstacles(
                             ..default()
                         },
                         texture: asset_server.load("textures/brick.png"),
-                        transform: Transform::from_xyz(x, y + wall_height / 2., 0.),
+                        transform: Transform::from_xyz(x, y + wall_height / 2., 500.),
                         ..default()
                     })
                     .insert(wall);
@@ -102,7 +102,7 @@ fn spawn_obstacles(
                 ..default()
             },
             texture: asset_server.load("sprites/platform.png"),
-            transform: Transform::from_xyz(PLATFORM_SPRITE_SIZE * 2., PLATFORM_MIN_Y, 0.),
+            transform: Transform::from_xyz(PLATFORM_SPRITE_SIZE * 2., PLATFORM_MIN_Y, 1.),
             ..default()
         })
         .insert(Platform)
@@ -191,7 +191,7 @@ fn emit_platforms(
                 ..default()
             },
             texture_atlas: atlas.clone(),
-            transform: Transform::from_translation(Vec3::new(x, 0., -2. / score.0 as f32)),
+            transform: Transform::from_translation(Vec3::new(x, 0., 1. + score.0 as f32)),
             ..default()
         });
     };
@@ -213,7 +213,7 @@ fn emit_platforms(
             transform: Transform::from_translation(Vec3::new(
                 platform_x,
                 platform_y,
-                -1. / score.0 as f32,
+                1. + score.0 as f32,
             )),
             ..default()
         })
