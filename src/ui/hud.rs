@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    effects::EffectQueue,
+    effects::{Effect, EffectQueue},
     events::{GameTimer, MAX_TIME_TO_REACH_WALL},
     Score,
 };
@@ -54,6 +54,11 @@ pub fn update_effect(effect: Res<EffectQueue>, mut query: Query<&mut Text, With<
     if effect.is_changed() {
         if let Some(effect) = effect.0.last() {
             text.sections[EFFECT_SECTION].value = effect.to_string();
+            if effect == &Effect::Darkness {
+                text.sections[EFFECT_SECTION].style.color = Color::WHITE;
+            } else {
+                text.sections[EFFECT_SECTION].style.color = Color::BLACK;
+            }
         }
     }
 }
