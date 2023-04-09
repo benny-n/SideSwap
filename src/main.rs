@@ -1,18 +1,19 @@
-#![allow(clippy::type_complexity)]
+#![allow(clippy::type_complexity, clippy::too_many_arguments)]
 
 use animation::AnimatorPlugin;
 use bevy::{prelude::*, window::PrimaryWindow};
+use bevy_rapier2d::prelude::{NoUserData, RapierPhysicsPlugin};
 use effects::EffectsPlugin;
 use events::EventPlugin;
-use physics::PhysicsPlugin;
 use player::PlayerPlugin;
+use tiles::TilesPlugin;
 use ui::UIPlugin;
 
 mod animation;
 mod effects;
 mod events;
-pub mod physics;
 mod player;
+pub mod tiles;
 mod ui;
 
 #[derive(Component, Clone, Copy, PartialEq)]
@@ -43,11 +44,12 @@ fn main() {
         .add_startup_system(spawn_camera)
         .add_system(reset_score.in_schedule(OnEnter(AppState::InGame)))
         .add_systems((update_highscore, exit_game).in_set(OnUpdate(AppState::InGame)))
+        .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
         .add_plugin(UIPlugin)
         .add_plugin(EffectsPlugin)
         .add_plugin(EventPlugin)
         .add_plugin(AnimatorPlugin)
-        .add_plugin(PhysicsPlugin)
+        .add_plugin(TilesPlugin)
         .add_plugin(PlayerPlugin)
         .run();
 }
