@@ -25,18 +25,19 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - name: install wasm-bindgen-cli
-        run: |
-          cargo install wasm-bindgen-cli
+      - name: Install trunk
+        uses: jetli/trunk-action@v0.1.0
+        with:
+          version: "latest"
 
-      - name: Build
+      - name: Build Release
         run: |
-          cargo build --release --target wasm32-unknown-unknown
+          trunk build --release --public-url
 
       - name: Prepare package
         run: |
-          wasm-bindgen --no-typescript --out-name bevy_game --out-dir wasm --target web target/wasm32-unknown-unknown/release/${{ env.binary }}.wasm
-          cp -r assets wasm/
+          sed -i 's/\/index/.\/index/g' dist/index.html
+          sed -i 's/\/${{ env.binary }}/.\/${{ env.binary }}/g' dist/index.html
 
       - name: Package as a zip
         working-directory: ./wasm
