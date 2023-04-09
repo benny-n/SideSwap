@@ -129,10 +129,7 @@ fn spawn_player(
             coefficient: 0.,
             combine_rule: CoefficientCombineRule::Min,
         })
-        .insert(Collider::cuboid(
-            (HALF_PLAYER_SIZE / 2.) - 15.,
-            HALF_PLAYER_SIZE,
-        ))
+        .insert(Collider::cuboid(HALF_PLAYER_SIZE / 2., HALF_PLAYER_SIZE))
         .insert(KinematicCharacterController {
             slide: false,
             ..default()
