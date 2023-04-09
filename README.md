@@ -33,3 +33,4 @@ Side effects - Touching initiates a random side effect and ends the previous one
 9. Violent screen shaking when player lands on platform ⏳
 10. ~~Screen distortion~~ Camera shaking ✅ (maybe also instead 9. and not 10.?)
 11. Darkness ✅
+12. Icy platforms - should feel icy ✅

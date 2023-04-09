@@ -5,7 +5,7 @@ use crate::{
     animation::{Animation, AnimationTimer, Animations},
     effects::{Effect, EffectQueue},
     events::WallReached,
-    tiles::Platform,
+    tiles::{Icy, Platform},
     AppState, Wall,
 };
 
@@ -39,9 +39,11 @@ impl Plugin for PlayerPlugin {
                 (
                     handle_player_collisions,
                     player_input.after(handle_player_collisions),
+                    remove_prismatic_joints_in_low_angles,
                     change_player_animation,
                     send_wall_reached_event,
                     move_player,
+                    confine_player_in_screen,
                 )
                     .in_set(OnUpdate(AppState::InGame)),
             )
@@ -127,7 +129,10 @@ fn spawn_player(
             coefficient: 0.,
             combine_rule: CoefficientCombineRule::Min,
         })
-        .insert(Collider::cuboid(HALF_PLAYER_SIZE / 2., HALF_PLAYER_SIZE))
+        .insert(Collider::cuboid(
+            (HALF_PLAYER_SIZE / 2.) - 15.,
+            HALF_PLAYER_SIZE,
+        ))
         .insert(KinematicCharacterController {
             slide: false,
             ..default()
@@ -147,7 +152,7 @@ fn spawn_player(
 /* Read the character controller collisions stored in the character controller’s output. */
 fn handle_player_collisions(
     wall_query: Query<&Wall>,
-    plat_query: Query<&Transform, (With<Platform>, Without<Player>)>,
+    plat_query: Query<(Option<&Icy>, &Velocity, &Transform), (With<Platform>, Without<Player>)>,
     mut commands: Commands,
     mut character_controller_outputs: Query<
         (
@@ -174,18 +179,68 @@ fn handle_player_collisions(
                         .remove::<ImpulseJoint>();
                 }
             }
-            let Some(platform_transform )= plat_query.get(collided_with).ok() else {
+            let Some((icy, platform_velocity, platform_transform) ) = plat_query.get(collided_with).ok() else {
                 continue;
             };
-            if joint.is_none() {
-                let joint = FixedJointBuilder::new().local_anchor2(Vec2::new(
+            if joint.is_none()
+                && platform_transform.translation.y
+                    < player_transform.translation.y - HALF_PLAYER_SIZE
+            {
+                let anchor = Vec2::new(
                     (platform_transform.translation - player_transform.translation).x,
                     -HALF_PLAYER_SIZE,
-                ));
-                commands
-                    .entity(player)
-                    .insert(ImpulseJoint::new(collided_with, joint));
+                );
+                let joint = if icy.is_some() {
+                    ImpulseJoint::new(
+                        collided_with,
+                        PrismaticJointBuilder::new(Vec2::X)
+                            .motor_velocity(-platform_velocity.linvel.x.signum(), 0.5)
+                            .local_anchor2(anchor),
+                    )
+                } else {
+                    ImpulseJoint::new(
+                        collided_with,
+                        FixedJointBuilder::new().local_anchor2(anchor),
+                    )
+                };
+                commands.entity(player).insert(joint);
             }
+        }
+    }
+}
+
+fn remove_prismatic_joints_in_low_angles(
+    mut commands: Commands,
+    mut player_query: Query<(Entity, &Transform, Option<&ImpulseJoint>), With<Player>>,
+    platform_query: Query<(Entity, &Transform), With<Platform>>,
+) {
+    for (player, transform, joint) in player_query.iter_mut() {
+        if let Some(joint) = joint {
+            let Ok(platform) = platform_query.get_component::<Transform>(joint.parent) else {
+                continue;
+            };
+            let dist = (transform.translation.x - platform.translation.x).abs();
+            if dist > HALF_PLAYER_SIZE && joint.data.as_prismatic().is_some() {
+                commands.entity(player).remove::<ImpulseJoint>();
+            }
+        }
+    }
+}
+
+fn confine_player_in_screen(
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut Transform, &mut Velocity), With<Player>>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+) {
+    let Ok(window) = window_query.get_single() else {
+        return;
+    };
+    for (player, mut transform, mut velocity) in query.iter_mut() {
+        if transform.translation.x > window.width() || transform.translation.x < 0. {
+            info!("confine player");
+            velocity.linvel = Vec2::ZERO;
+            transform.translation.x = transform.translation.x.clamp(0., window.width());
+            commands.entity(player).remove::<ImpulseJoint>();
         }
     }
 }
@@ -256,7 +311,7 @@ fn change_player_animation(
 ) {
     for (player, velocity) in query.iter_mut() {
         let old_animation_handle = animations.active.handle.clone();
-        animations.active = if velocity.linvel.y.abs() >= 0.01 {
+        animations.active = if velocity.linvel.y.abs() >= 0.025 {
             &animations.map["jump"]
         } else if velocity.linvel.x.abs() <= 0.001 {
             &animations.map["idle"]
