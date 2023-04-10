@@ -64,7 +64,7 @@ fn spawn_obstacles(
 
     // Walls
     [0., wall_height].into_iter().for_each(|y| {
-        [(0., Wall::Left), (window.width(), Wall::Right)]
+        [(-5., Wall::Left), (5. + window.width(), Wall::Right)]
             .into_iter()
             .for_each(|(x, wall)| {
                 commands
@@ -91,7 +91,7 @@ fn spawn_obstacles(
                         transform: Transform::from_xyz(x, y + wall_height / 2., 500.),
                         ..default()
                     })
-                    .insert(Collider::cuboid(15., wall_height / 2.))
+                    .insert(Collider::cuboid(10., wall_height / 2.))
                     .insert(ColliderMassProperties::Density(f32::INFINITY))
                     .insert(wall)
                     .insert(AnimationTimer(Timer::from_seconds(
