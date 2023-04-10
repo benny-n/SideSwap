@@ -3,6 +3,7 @@ use bevy_rapier2d::prelude::*;
 use rand::{random, thread_rng, Rng};
 
 use crate::{
+    animation::AnimationTimer,
     effects::{Effect, EffectQueue},
     player::LastWall,
     AppState, Score, Wall,
@@ -39,6 +40,7 @@ impl Plugin for TilesPlugin {
 
 fn spawn_obstacles(
     mut commands: Commands,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     asset_server: Res<AssetServer>,
     window_query: Query<&Window, With<PrimaryWindow>>,
 ) {
@@ -46,7 +48,7 @@ fn spawn_obstacles(
         return;
     };
 
-    let wall_width = 250.;
+    let wall_width = 80.;
     let wall_height = window.height();
 
     // Background
@@ -62,24 +64,41 @@ fn spawn_obstacles(
 
     // Walls
     [0., wall_height].into_iter().for_each(|y| {
-        [(-110., Wall::Left), (110. + window.width(), Wall::Right)]
+        [(0., Wall::Left), (window.width(), Wall::Right)]
             .into_iter()
             .for_each(|(x, wall)| {
                 commands
                     .spawn(RigidBody::Fixed)
-                    .insert(Collider::cuboid(wall_width / 2., wall_height / 2.))
-                    .insert(SpriteBundle {
-                        sprite: Sprite {
-                            custom_size: Some(Vec2::new(wall_width, wall_height)),
+                    .insert(SpriteSheetBundle {
+                        texture_atlas: texture_atlases.add(TextureAtlas::from_grid(
+                            asset_server.load("textures/sideglow.png"),
+                            Vec2::new(wall_width, wall_height),
+                            4,
+                            1,
+                            None,
+                            None,
+                        )),
+                        sprite: TextureAtlasSprite {
+                            index: 0,
+                            flip_x: Wall::Right == wall,
+                            color: if Wall::Left == wall {
+                                Color::GREEN
+                            } else {
+                                Color::rgba(0., 1., 0., 0.)
+                            },
                             ..default()
                         },
-                        texture: asset_server.load("textures/brick.png"),
                         transform: Transform::from_xyz(x, y + wall_height / 2., 500.),
                         ..default()
                     })
+                    .insert(Collider::cuboid(15., wall_height / 2.))
                     .insert(ColliderMassProperties::Density(f32::INFINITY))
-                    .insert(wall);
-            })
+                    .insert(wall)
+                    .insert(AnimationTimer(Timer::from_seconds(
+                        1. / 4.,
+                        TimerMode::Repeating,
+                    )));
+            });
     });
 
     // Starting platform
@@ -270,20 +289,25 @@ fn despawn_out_of_screen_platforms(
 }
 
 fn highlight_target_wall(
-    mut wall_query: Query<(&Wall, &mut Sprite), With<Wall>>,
-    last_wall_query: Query<(&LastWall, Changed<LastWall>)>,
+    time: Res<Time>,
+    mut wall_query: Query<(&Wall, &mut AnimationTimer, &mut TextureAtlasSprite), With<Wall>>,
+    last_wall_query: Query<&LastWall>,
 ) {
-    let Ok((last_wall, last_wall_changed)) = last_wall_query.get_single() else {
+    let Ok(last_wall)= last_wall_query.get_single() else {
       return;
     };
-    if !last_wall_changed {
-        return;
-    }
-    for (wall, mut sprite) in wall_query.iter_mut() {
+    for (wall, mut timer, mut sprite) in &mut wall_query {
+        // Animate the target wall, and set the other wall to be transparent
         if wall == &last_wall.0 {
-            sprite.color = Color::WHITE;
+            sprite.color.set_a(0.);
+            timer.reset();
+            sprite.index = 0;
         } else {
-            sprite.color = Color::rgb(1., 0.2, 0.0);
+            sprite.color.set_a(1.);
+            timer.tick(time.delta());
+            if timer.just_finished() {
+                sprite.index = (sprite.index + 1) % 4;
+            }
         }
     }
 }

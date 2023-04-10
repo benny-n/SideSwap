@@ -120,7 +120,7 @@ fn spawn_player(
         })
         .insert(RigidBody::Dynamic)
         .insert(LockedAxes::ROTATION_LOCKED)
-        .insert(GravityScale(5.))
+        .insert(GravityScale(4.))
         .insert(Velocity {
             linvel: Vec2::new(0., 0.),
             angvel: 0.,
