@@ -115,9 +115,9 @@ fn change_gravity(effect_q: Res<EffectQueue>, mut gravity_query: Query<&mut Grav
         return;
     };
     gravity.0 = match effect_q.last() {
-        Some(Effect::HighGravity) => 10.0,
-        Some(Effect::LowGravity) => 2.5,
-        _ => 5.0,
+        Some(Effect::HighGravity) => 8.0,
+        Some(Effect::LowGravity) => 2.0,
+        _ => 4.0,
     }
 }
 
