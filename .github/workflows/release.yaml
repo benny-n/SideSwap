@@ -40,7 +40,7 @@ jobs:
           sed -i 's/\/${{ env.binary }}/.\/${{ env.binary }}/g' dist/index.html
 
       - name: Package as a zip
-        working-directory: ./wasm
+        working-directory: ./dist
         run: |
           zip --recurse-paths ../${{ env.binary }}.zip .
 
